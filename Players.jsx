@@ -1,5 +1,7 @@
 import React,{useState,useContext,useMemo} from 'react'
 import {Ctx} from './context'
+import {useDataMode} from './dataMode'
+import {LivePlayersPage} from './LivePlayers'
 import {flag} from './compData'
 import {I} from './Icon'
 import {Btn} from './ui'
@@ -54,9 +56,11 @@ function Compare({a,b}){
      <span className={`text-sm tabular-nums ${y>=x?'font-extrabold':'text-mute'}`}>{fmt(y)}</span></div></div>})}</div>
    <p className="text-[11px] text-mute mt-6">Bars use one shared scale per metric: rating out of 10, pass accuracy out of 100, other metrics relative to the larger of the two values.</p></div></div>}
 
-export function PlayersPage({sub,a,b}){
+function DemoPlayersPage({sub,a,b}){
  const {nav}=useContext(Ctx);const cmp=sub==='compare';
  return <div>
   <div className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-6 sm:p-9 mb-6"><div className="glow absolute inset-0 pointer-events-none"/><h1 className="relative text-3xl sm:text-5xl font-extrabold tracking-tight">Player Intelligence</h1><p className="relative text-mute mt-3 max-w-xl">Explore player performance, form and match impact.</p></div>
   <div role="tablist" className="flex gap-1 border-b border-line mb-6">{[['Discover',''],['Compare players','/compare']].map(([l,s])=><button key={l} role="tab" aria-selected={(s==='/compare')===cmp} onClick={()=>nav('players'+s)} className={`px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition ${(s==='/compare')===cmp?'border-lime text-white':'border-transparent text-mute hover:text-white'}`}>{l}</button>)}</div>
   {cmp?<Compare a={a} b={b}/>:<Discover/>}</div>}
+
+export function PlayersPage(props){return useDataMode()==='live'?<LivePlayersPage {...props}/>:<DemoPlayersPage {...props}/>}

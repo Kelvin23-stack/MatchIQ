@@ -17,12 +17,12 @@ import {UserModal} from './UserModal'
 
 const KEY='matchiq.predictions'
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
-const SHELL=TABS.map(t=>t[0]),AUTH=['signup','login','forgot','reset'],VALID=[...SHELL,...AUTH,'landing','onboarding','player','match'],tabOf=r=>{const b=r.split('/')[0];return b==='player'?'players':b==='match'?'matches':b};
+const SHELL=TABS.map(t=>t[0]),AUTH=['signup','login','forgot','reset'],VALID=[...SHELL,...AUTH,'landing','onboarding','player','match','lplayer','lmatch'],tabOf=r=>{const b=r.split('/')[0];return b==='player'||b==='lplayer'?'players':b==='match'||b==='lmatch'?'matches':b};
 
 function Router({view}){
  const {user}=useAuth();let r=view;
  const base=view.split('/')[0];
- if(!user){if(SHELL.includes(base)||['player','match'].includes(base)||view==='onboarding')r='login'}
+ if(!user){if(SHELL.includes(base)||['player','match','lplayer','lmatch'].includes(base)||view==='onboarding')r='login'}
  else if(!user.onboarded){if(view!=='landing')r='onboarding'}
  else if(AUTH.includes(view)||view==='onboarding')r='overview';
  useEffect(()=>{if(r!==view)location.replace('#'+r)},[r,view]);

@@ -11,14 +11,28 @@ import {Sheet} from './Sheet'
 import {Field,PasswordField,Strength,Toggle} from './Fields'
 import {ClubPicker,LeaguePicker,CountryPicker} from './Pickers'
 import {Confirm} from './Confirm'
+import {useDataSettings,setMode,setSeason} from './dataMode'
+import {api} from './footballApi'
+import {errText} from './LiveBits'
 
-const SECS=[['account','Account'],['appearance','Appearance'],['notifications','Notifications'],['privacy','Privacy'],['preferences','Preferences'],['actions','Account actions']];
+const SECS=[['account','Account'],['appearance','Appearance'],['notifications','Notifications'],['privacy','Privacy'],['preferences','Preferences'],['data','Data source'],['actions','Account actions']];
 const Card=({id,title,sub,children})=><section id={'s-'+id} className="scroll-mt-24"><h2 className="text-lg font-extrabold">{title}</h2>{sub&&<p className="text-sm text-mute mt-0.5">{sub}</p>}<div className="mt-4 rounded-2xl bg-card border border-line p-5">{children}</div></section>;
 const Row=({l,v,action})=><div className="flex items-center justify-between gap-3 py-3 border-b border-line last:border-0"><div className="min-w-0"><p className="text-xs text-mute">{l}</p><p className="text-sm font-semibold truncate">{v}</p></div>{action}</div>;
 const Acc=({title,value,children})=><details className="rounded-xl border border-line bg-bg2 mb-3"><summary className="flex items-center justify-between gap-3 p-4 cursor-pointer list-none"><span className="text-sm font-bold">{title}</span><span className="text-xs text-mute flex items-center gap-1.5 truncate">{value}<I n="right" s={14}/></span></summary><div className="p-4 pt-0">{children}</div></details>;
 const NOTIFS=[['reminders','Match reminders','Know before kickoff'],['results','Prediction results','When your picks are settled'],['friends','Friend requests','New requests and accepts'],['community','Community activity','Likes, comments and mentions'],['achievements','Achievement notifications','Badges and milestones']];
 const THEMES=[['dark','Dark','sun','#080B0A','rgb(var(--card))'],['light','Light','sun','#F4F6F4','#FFFFFF'],['system','System','monitor','linear-gradient(90deg,#080B0A 50%,#F4F6F4 50%)','#9AA39D']];
 
+function DataSource(){
+ const {mode,season}=useDataSettings();const [t,setT]=useState(null),[busy,setBusy]=useState(false),[yr,setYr]=useState(season);
+ const test=async()=>{setBusy(true);setT(null);try{const c=await api('config',{},{force:true,ttl:0});let s=null;if(c.data.configured){try{s=await api('status',{},{force:true,ttl:0})}catch(e){s={error:e}}}setT({cfg:c.data,status:s})}catch(e){setT({error:e})}setBusy(false)};
+ return <div>
+  <div className="grid grid-cols-2 gap-2 mb-2">{[['demo','Demo data','Built-in sample dataset'],['live','Live data','API-Football through the server']].map(([k,l,d])=><button key={k} onClick={()=>setMode(k)} aria-pressed={mode===k} className={`rounded-xl border p-3 text-left transition ${mode===k?'border-lime bg-white/5':'border-line bg-bg2 hover:border-white/30'}`}><p className="text-sm font-bold">{l}</p><p className="text-[11px] text-mute">{d}</p></button>)}</div>
+  <p className="text-xs text-mute mb-4">{mode==='live'?'Match Centre and Player Intelligence use real provider data. If a request fails you will see an error or a clearly labelled cached result, never invented numbers.':'Demo statistics are sample data and are never real results.'}</p>
+  <label className="text-xs font-bold uppercase tracking-wider text-mute">Season (optional)</label>
+  <div className="flex gap-2 mt-2"><input value={yr} onChange={e=>setYr(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="e.g. 2025 (blank = server default)" className="flex-1 min-w-0 rounded-xl bg-bg2 border border-line px-4 py-2.5 text-sm outline-none focus:border-white/40"/><Btn v="s" onClick={()=>setSeason(yr)}>Apply</Btn></div>
+  <p className="text-[11px] text-mute mt-2">Free API plans only cover some seasons. If you see a plan error, try an earlier season here.</p>
+  <div className="mt-5 pt-5 border-t border-line"><Btn v="s" onClick={test} className={busy?'opacity-50 pointer-events-none':''}>{busy?'Testing…':'Test connection'}</Btn>
+   {t&&<div className="mt-3 rounded-xl border border-line bg-bg2 p-3 text-xs space-y-1">{t.error?<p className="text-red-400">{errText(t.error)}</p>:<><p>Server key configured: <b>{t.cfg.configured?'yes':'no'}</b></p><p>Enabled competitions: <b>{t.cfg.leagues.join(', ')}</b> · default season <b>{t.cfg.defaultSeason}</b></p>{t.status&&(t.status.error?<p className="text-red-400">{errText(t.status.error)}</p>:t.status.data&&<p>Plan: <b>{t.status.data.plan||'unknown'}</b>{t.status.data.requests?<> · requests today <b>{t.status.data.requests.current}</b> / {t.status.data.requests.limit_day}</>:null}</p>)}<p className="text-mute">The key itself is stored on the server only and is never shown here.</p></>}</div>}</div></div>}
 export function Settings(){
  const {toast,nav,theme,setTheme}=useContext(Ctx);const {user,update,changePassword,logout,deleteAccount}=useAuth();const st=user.settings,p=user.profile;
  const [pw,setPw]=useState({cur:'',next:'',conf:''}),[sub,setSub]=useState(false),[srv,setSrv]=useState(''),[out,setOut]=useState(false),[del,setDel]=useState(false),[typed,setTyped]=useState('');
@@ -45,6 +59,7 @@ export function Settings(){
    <Acc title="Favourite club" value={p.club?T[p.club][0]:'Not set'}><ClubPicker value={p.club} onChange={v=>{update({profile:{club:v}});toast('Favourite club updated')}}/></Acc>
    <Acc title="Favourite leagues" value={`${(p.leagues||[]).length} selected`}><LeaguePicker value={p.leagues||[]} onChange={v=>update({profile:{leagues:v}})}/></Acc>
    <Acc title="Preferred country" value={p.country?<>{flag(p.country)} {countryName(p.country)}</>:'Not set'}><CountryPicker value={p.country} onChange={v=>{update({profile:{country:v}});toast('Country updated')}}/></Acc></Card>
+  <Card id="data" title="Data source" sub="Choose between demo data and live football data."><DataSource/></Card>
   <Card id="actions" title="Account actions">
    <div className="flex flex-col sm:flex-row gap-3"><Btn v="s" onClick={()=>setOut(true)}><I n="logout" s={16}/>Log out</Btn><button onClick={()=>{setTyped('');setDel(true)}} className="rounded-xl font-bold text-sm px-5 py-3 border border-red-400/40 text-red-400 hover:bg-red-500/10 transition active:scale-95 inline-flex items-center justify-center gap-2"><I n="trash" s={16}/>Delete account</button></div></Card>
   {out&&<Confirm title="Log out?" body="You will return to the landing page. Your demo account stays saved in this browser." label="Log out" onConfirm={doLogout} onClose={()=>setOut(false)}/>}

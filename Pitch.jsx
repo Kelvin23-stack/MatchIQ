@@ -26,6 +26,11 @@ function PitchSvg({portrait}){
 
 // Arrange the XI into the formation's lines (GK first). A non-default formation re-slots outfielders by position group.
 export const arrange=(xi,formation,actual)=>{if(formation===actual)return xi;const o={DF:0,MF:1,FW:2};return[xi[0],...xi.slice(1).map((p,i)=>[p,i]).sort((a,b)=>o[a[0].pos]-o[b[0].pos]||a[1]-b[1]).map(x=>x[0])]};
+// Live data: place players from the provider's grid (row:col). Falls back to position groups if a grid is missing.
+const gridSpots=(xi,side,portrait)=>{const has=xi.length&&xi.every(p=>p.grid);let groups;
+ if(has){const rows=[...new Set(xi.map(p=>p.grid[0]))].sort((a,b)=>a-b);groups=rows.map(r=>xi.filter(p=>p.grid[0]===r).sort((a,b)=>a.grid[1]-b.grid[1]))}
+ else{const order=['GK','DF','MF','FW'];groups=order.map(g=>xi.filter(p=>p.pos===g)).filter(x=>x.length);const rest=xi.filter(p=>!order.includes(p.pos));if(rest.length)groups.push(rest)}
+ const R=groups.length,out=[];groups.forEach((g,li)=>{const t=R>1?li/(R-1):0;g.forEach((pl,j)=>{const a=(j+1)/(g.length+1);out.push(portrait?{pl,left:8+a*84,top:89-t*75}:side==='H'?{pl,left:4+t*44,top:8+a*84}:{pl,left:96-t*44,top:92-a*84})})});return out};
 const spots=(xi,formation,side,portrait)=>{const lines=FORMATIONS[formation];let i=0;const out=[];lines.forEach((n,li)=>{const t=li/(lines.length-1);for(let j=0;j<n;j++){const pl=xi[i++],a=(j+1)/(n+1);
  out.push(portrait?{pl,left:8+a*84,top:89-t*75}:side==='H'?{pl,left:4+t*44,top:8+a*84}:{pl,left:96-t*44,top:92-a*84})}});return out};
 
@@ -36,7 +41,7 @@ function Marker({s,color,onClick,on,cap}){
   <span className="max-w-[64px] sm:max-w-[84px] truncate rounded bg-black/55 px-1.5 text-[9px] sm:text-[11px] font-semibold text-[#fff] leading-4">{s.pl.sn}</span></button>}
 
 export function LineupPending({m,demo}){return <div className="rounded-3xl border border-dashed border-line p-10 sm:p-14 text-center"><div className="w-14 h-14 mx-auto rounded-2xl bg-card border border-line grid place-items-center text-mute"><I n="clock" s={26}/></div>
- <p className="font-extrabold text-lg mt-4">{demo?'No lineup in the demo dataset':'Lineups have not been announced yet.'}</p>
+ <p className="font-extrabold text-lg mt-4">{demo?'No lineup in the demo dataset':'Official lineups have not been announced yet.'}</p>
  <p className="text-sm text-mute mt-2 max-w-md mx-auto">{demo?'This sample match has no lineup data. Try the finished or live sample matches to see the pitch view.':'Confirmed lineups will appear here when they are available. MatchIQ never shows projected lineups as confirmed.'}</p>{m&&<p className="text-xs text-mute mt-3">Kickoff: {m.t}</p>}</div>}
 
 export function LineupView({m,d}){
@@ -45,14 +50,16 @@ export function LineupView({m,d}){
  const side=s=>({xi:arrange(d[s].xi,fm[s],d[s].formation),code:s==='H'?m.h:m.a});
  const color=s=>teamColor(s==='H'?m.h:m.a);
  const shown=mobile?[team]:['H','A'];
- const spotsAll=shown.flatMap(s=>spots(side(s).xi,fm[s],s,mobile).map(x=>({...x,s})));
+ const spotsAll=shown.flatMap(s=>(d.live?gridSpots(d[s].xi,s,mobile):spots(side(s).xi,fm[s],s,mobile)).map(x=>({...x,s})));
  const stripe=mobile?'180deg':'90deg';
- const detail=sel&&(()=>{const pl=sel.pl,ps=d.ps[pl.name],prof=pl.id&&getPlayer(pl.id),ss=prof&&seasonOf(prof);return{pl,ps,prof,ss}})();
+ const psOf=pl=>d.ps?d.ps[d.live?pl.id:pl.name]:undefined;
+ const rt=v=>v==null?'n/a':v.toFixed(1)+(d.live?' (provider)':' (demo)');
+ const detail=sel&&(()=>{const pl=sel.pl,ps=psOf(pl),prof=!d.live&&pl.id&&getPlayer(pl.id),ss=prof&&seasonOf(prof);return{pl,ps,prof,ss}})();
  return <div>
-  <div className="flex flex-wrap items-center gap-3 mb-4"><DemoTag>Demo lineups</DemoTag>{mobile&&<div role="tablist" aria-label="Team" className="inline-flex rounded-full border border-line bg-card p-1 ml-auto">{['H','A'].map(s=><button key={s} role="tab" aria-selected={team===s} onClick={()=>{setTeam(s);setSel(null)}} className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${team===s?'bg-lime text-ink':'text-mute'}`}>{teamName(s==='H'?m.h:m.a)}</button>)}</div>}</div>
+  <div className="flex flex-wrap items-center gap-3 mb-4"><DemoTag>{d.live?'Live data (provider)':'Demo lineups'}</DemoTag>{mobile&&<div role="tablist" aria-label="Team" className="inline-flex rounded-full border border-line bg-card p-1 ml-auto">{['H','A'].map(s=><button key={s} role="tab" aria-selected={team===s} onClick={()=>{setTeam(s);setSel(null)}} className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${team===s?'bg-lime text-ink':'text-mute'}`}>{teamName(s==='H'?m.h:m.a)}</button>)}</div>}</div>
   <div className="grid md:grid-cols-2 gap-3 mb-4">{shown.map(s=>{const t=d[s],code=s==='H'?m.h:m.a,cap=[...t.xi,...t.bench].find(p=>p.id&&p.id===t.captain);return <div key={s} className="rounded-2xl border border-line bg-card p-4">
-   <div className="flex items-center gap-3"><TeamBadge code={code} s={36}/><div className="min-w-0 flex-1"><p className="font-extrabold truncate">{teamName(code)}</p><p className="text-xs text-mute">{t.manager?`Manager: ${t.manager} (demo)`:'Manager: not in demo data'}</p></div>
-    <label className="text-xs text-mute flex flex-col items-end gap-1">Formation<select value={fm[s]} onChange={e=>setFm({...fm,[s]:e.target.value})} className="rounded-lg bg-bg2 border border-line px-2 py-1 text-sm font-bold text-white outline-none">{Object.keys(FORMATIONS).map(f=><option key={f} value={f}>{f}{f===t.formation?' (lineup)':''}</option>)}</select></label></div>
+   <div className="flex items-center gap-3"><TeamBadge code={code} s={36}/><div className="min-w-0 flex-1"><p className="font-extrabold truncate">{teamName(code)}</p><p className="text-xs text-mute">{t.manager?`Manager: ${t.manager}${d.live?'':' (demo)'}`:'Manager: not provided'}</p></div>
+    {d.live?<div className="text-xs text-mute text-right">Formation<p className="text-sm font-bold text-white">{t.formation||'Not provided'}</p></div>:<label className="text-xs text-mute flex flex-col items-end gap-1">Formation<select value={fm[s]} onChange={e=>setFm({...fm,[s]:e.target.value})} className="rounded-lg bg-bg2 border border-line px-2 py-1 text-sm font-bold text-white outline-none">{Object.keys(FORMATIONS).map(f=><option key={f} value={f}>{f}{f===t.formation?' (lineup)':''}</option>)}</select></label>}</div>
    {fm[s]!==t.formation&&<p className="text-[11px] text-sky mt-2">Previewing a different shape. The lineup formation is {t.formation}.</p>}
    <p className="text-xs text-mute mt-3">Captain: <b className="text-white">{(t.xi.find(p=>p.id===t.captain)||{}).name||'n/a'}</b> · Goalkeeper: <b className="text-white">{t.xi[0].name}</b></p>
    <ol className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">{t.xi.map(p=><li key={p.name} className="truncate"><span className="text-mute tabular-nums inline-block w-6">{p.num}</span>{p.name}{p.id===t.captain&&<span className="text-mute"> (C)</span>}</li>)}</ol></div>})}</div>
@@ -61,9 +68,9 @@ export function LineupView({m,d}){
   <p className="text-[11px] text-mute text-center mt-2">Tap or click a player for details.</p>
   {detail&&<div className="pop mt-4 rounded-2xl border border-white/20 bg-card p-5"><div className="flex items-start gap-4"><PlayerAvatar p={{name:detail.pl.name,team:sel.side==='H'?m.h:m.a,num:detail.pl.num}} s={56}/>
    <div className="flex-1 min-w-0"><p className="font-extrabold text-lg">{detail.pl.name}</p><p className="text-xs text-mute">#{detail.pl.num} · {({GK:'Goalkeeper',DF:'Defender',MF:'Midfielder',FW:'Forward'})[detail.pl.pos]} · {teamName(sel.side==='H'?m.h:m.a)}</p></div><button onClick={()=>setSel(null)} aria-label="Close player panel" className="text-mute hover:text-white"><I n="x"/></button></div>
-   <div className="grid grid-cols-3 gap-2 mt-4">{[['Match rating',detail.ps?detail.ps[1].toFixed(1)+' (demo)':'n/a'],['Goals / assists',detail.ps?`${detail.ps[2]} / ${detail.ps[3]}`:'n/a'],['Season rating',detail.ss?detail.ss.rating.toFixed(1)+' (demo)':'no profile']].map(([a,b])=><div key={a} className="rounded-xl bg-bg2 border border-line p-3"><p className="text-[10px] text-mute">{a}</p><p className="text-sm font-extrabold mt-0.5">{b}</p></div>)}</div>
-   {detail.prof?<Btn className="w-full mt-4" onClick={()=>nav('player/'+detail.prof.id)}>Open full profile<I n="arrow" s={15}/></Btn>:<p className="text-xs text-mute mt-4">No Player Intelligence profile for this player in the demo dataset.</p>}</div>}
+   <div className="grid grid-cols-3 gap-2 mt-4">{[['Match rating',detail.ps?rt(detail.ps[1]):'n/a'],['Goals / assists',detail.ps?`${detail.ps[2]??'–'} / ${detail.ps[3]??'–'}`:'n/a'],[d.live?'Season stats':'Season rating',d.live?'In full profile':detail.ss?detail.ss.rating.toFixed(1)+' (demo)':'no profile']].map(([a,b])=><div key={a} className="rounded-xl bg-bg2 border border-line p-3"><p className="text-[10px] text-mute">{a}</p><p className="text-sm font-extrabold mt-0.5">{b}</p></div>)}</div>
+   {d.live&&detail.pl.id?<Btn className="w-full mt-4" onClick={()=>nav('lplayer/'+detail.pl.id)}>Open full profile<I n="arrow" s={15}/></Btn>:detail.prof?<Btn className="w-full mt-4" onClick={()=>nav('player/'+detail.prof.id)}>Open full profile<I n="arrow" s={15}/></Btn>:<p className="text-xs text-mute mt-4">No Player Intelligence profile for this player in the demo dataset.</p>}</div>}
   <h3 className="font-extrabold mt-8 mb-3">Substitutes</h3>
   <div className="grid md:grid-cols-2 gap-4">{['H','A'].map(s=><div key={s} className="rounded-2xl border border-line bg-card p-4"><p className="text-xs font-bold uppercase tracking-wider text-mute mb-3 flex items-center gap-2"><TeamBadge code={s==='H'?m.h:m.a} s={20}/>{teamName(s==='H'?m.h:m.a)}</p>
-   <div className="divide-y divide-line">{d[s].bench.map(p=>{const ps=d.ps[p.name];return <button key={p.name} onClick={()=>setSel({pl:p,side:s})} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-white/[0.04] rounded-lg px-1 transition"><PlayerAvatar p={{name:p.name,team:s==='H'?m.h:m.a,num:p.num}} s={36} num={false}/><span className="flex-1 min-w-0"><span className="block text-sm font-semibold truncate">{p.name}</span><span className="text-[11px] text-mute">#{p.num} · {p.pos}</span></span>{ps?<span className="text-sm font-bold" style={{color:tone(ps[1])}}>{ps[1].toFixed(1)}</span>:<span className="text-[11px] text-mute">unused</span>}</button>})}</div></div>)}</div>
+   <div className="divide-y divide-line">{d[s].bench.map(p=>{const ps=psOf(p);return <button key={p.name} onClick={()=>setSel({pl:p,side:s})} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-white/[0.04] rounded-lg px-1 transition"><PlayerAvatar p={{name:p.name,team:s==='H'?m.h:m.a,num:p.num}} s={36} num={false}/><span className="flex-1 min-w-0"><span className="block text-sm font-semibold truncate">{p.name}</span><span className="text-[11px] text-mute">#{p.num} · {p.pos}</span></span>{ps&&ps[1]!=null?<span className="text-sm font-bold" style={{color:tone(ps[1])}}>{ps[1].toFixed(1)}</span>:<span className="text-[11px] text-mute">{d.live?'':'unused'}</span>}</button>})}</div></div>)}</div>
  </div>}

@@ -11,6 +11,8 @@ import {Settings} from './Settings'
 import {PlayersPage} from './Players'
 import {PlayerProfile} from './PlayerProfile'
 import {MatchPage} from './MatchPage'
+import {LiveMatchPage} from './LiveMatchPage'
+import {LivePlayerProfile} from './LivePlayers'
 import {createPortal} from 'react-dom'
 import {useAuth} from './AuthContext'
 import {ME,ini} from './compData'
@@ -51,6 +53,8 @@ export function Dashboard({tab,route}){
  if(rb==='player')body=<PlayerProfile id={rr[0]}/>;
  if(rb==='match')body=<MatchPage id={rr[0]} tab={rr[1]}/>;
  if(rb==='competition')body=<Competition section={rr[0]}/>;
+ if(rb==='lmatch')body=<LiveMatchPage id={rr[0]} tab={rr[1]}/>;
+ if(rb==='lplayer')body=<LivePlayerProfile id={rr[0]}/>;
  if(rb==='players')body=<PlayersPage sub={rr[0]} a={rr[1]} b={rr[2]}/>;
  return <div key={route||tab} className="slide">{tab==='overview'&&<div className="mb-6"><h1 className="text-2xl sm:text-3xl font-extrabold">Welcome back, {ME.full.split(' ')[0]}</h1><p className="text-mute text-sm mt-1">Your streak is alive. Keep it going this weekend.</p></div>}{body}</div>;}
 

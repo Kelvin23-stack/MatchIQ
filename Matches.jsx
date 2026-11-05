@@ -6,12 +6,14 @@ import {Crest,Btn} from './ui'
 import {MatchCard,LeagueBadge} from './MatchCard'
 import {CommBar} from './MatchDetail'
 import night from './stadium-night.jpg'
+import {useDataMode} from './dataMode'
+import {LiveMatches} from './LiveMatches'
 import crowd from './stadium-crowd.jpg'
 
 const Chips=({items,v,set})=><div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">{items.map(x=><button key={x} onClick={()=>set(x)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold border transition ${v===x?'bg-lime text-ink border-lime':'border-line text-mute hover:text-white hover:border-white/25'}`}>{x}</button>)}</div>
 const Section=({t,n,live,children,empty})=><section className="mt-10"><h2 className="flex items-center gap-3 font-bold text-lg mb-4">{live&&<span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"/>}{t}<span className="text-xs font-semibold text-mute bg-card border border-line rounded-full px-2 py-0.5">{n}</span></h2>{n?<div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{children}</div>:empty}</section>
 
-export function MatchCentre(){
+function DemoMatchCentre(){
  const {openPick,setDetail,store}=useContext(Ctx);
  const [lg,setLg]=useState('All Matches'),[df,setDf]=useState('All');
  const pass=m=>(lg==='All Matches'||m.lg===lg)&&(df==='All'||(df==='Today'?m.day===0:df==='Tomorrow'?m.day===1:m.day>=0&&m.day<=6));
@@ -32,3 +34,6 @@ export function MatchCentre(){
   <Section t="Upcoming fixtures" n={up.length} empty={<Empty t="No upcoming fixtures for this filter."/>}>{up.map(m=><MatchCard key={m.id} m={m}/>)}</Section>
   <Section t="Recently completed" n={ft.length} empty={<Empty t="No completed matches for this filter."/>}>{ft.map(m=><MatchCard key={m.id} m={m}/>)}</Section>
  </div>}
+
+function LiveShell(){return <div><div className="scope-dark relative overflow-hidden rounded-3xl border border-white/10 mb-6"><img src={night} alt="A floodlit football pitch at night" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-75"/><div className="absolute inset-0 bg-gradient-to-r from-[#080B0A] via-[#080B0A]/70 to-transparent"/><div className="relative p-6 sm:p-10 sm:py-14"><h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">Explore Matches</h1><p className="text-white/70 mt-3 max-w-md">Real fixtures, scores and lineups from the data provider.</p></div></div><LiveMatches/></div>}
+export function MatchCentre(){return useDataMode()==='live'?<LiveShell/>:<DemoMatchCentre/>}

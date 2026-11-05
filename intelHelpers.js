@@ -2,8 +2,12 @@ import {PLAYERS,SEASON} from './playerData'
 import {T} from './data'
 export {PLAYERS,SEASON}
 export const OPPN={NEW:'Newcastle United',AVL:'Aston Villa',BHA:'Brighton',WHU:'West Ham',EVE:'Everton',FUL:'Fulham',BRE:'Brentford',CRY:'Crystal Palace',WOL:'Wolves',NFO:'Nottingham Forest',BOU:'Bournemouth',LEE:'Leeds United',SUN:'Sunderland',BUR:'Burnley'};
-export const teamName=c=>T[c]?T[c][0]:OPPN[c]||c;
-export const teamColor=c=>T[c]?T[c][1]:'#7A857E';
+// Runtime registry so live-API teams (numeric ids) can be shown by the same components as demo teams.
+export const TEAM_REG={};
+export const registerTeam=(code,t)=>{TEAM_REG[code]=t};
+export const teamName=c=>T[c]?T[c][0]:(TEAM_REG[c]&&TEAM_REG[c].name)||OPPN[c]||c;
+export const teamColor=c=>T[c]?T[c][1]:(TEAM_REG[c]&&TEAM_REG[c].color)||'#7A857E';
+export const teamLogo=c=>(TEAM_REG[c]&&TEAM_REG[c].logo)||null;
 export const POS={GK:'Goalkeeper',DF:'Defender',MF:'Midfielder',FW:'Forward'};
 export const TEAM_CODES=['ARS','CHE','LIV','MCI','MUN','TOT'];
 export const getPlayer=id=>PLAYERS.find(p=>p.id===id);
