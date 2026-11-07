@@ -1,6 +1,7 @@
 import React,{useState,useContext} from 'react'
-import {T} from './data'
-import {ME,flag,ini,PRED,HIST} from './compData'
+import {T,marketLines} from './data'
+import {ME,flag,ini,HIST} from './compData'
+import {rehydrate,verdict} from './liveMatch'
 import {countryName} from './countries'
 import {Ctx} from './context'
 import {useAuth} from './AuthContext'
@@ -36,7 +37,7 @@ function Editor({onClose}){
   <div className="lg:sticky lg:top-24"><p className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Live preview</p><ProfilePreview d={d}/></div></div>}
 
 export function Profile(){
- const {user}=useAuth();const [edit,setEdit]=useState(false);const L=levelInfo(ME.xp),club=T[ME.club];
+ const {user}=useAuth();const {store}=useContext(Ctx);const mine=Object.values(store).filter(p=>p.m).sort((a,b)=>b.at-a.at).slice(0,5);const [edit,setEdit]=useState(false);const L=levelInfo(ME.xp),club=T[ME.club];
  return <div className="space-y-8">
   <div className="relative overflow-hidden rounded-3xl border border-line" style={{background:`linear-gradient(135deg,${club[1]}33,rgb(var(--card)) 55%,rgb(var(--bg2)))`}}>
    <div className="absolute inset-y-0 right-0 w-1/2 pointer-events-none overflow-hidden" style={{background:`repeating-linear-gradient(90deg,${club[1]}38 0 16px,transparent 16px 32px)`,WebkitMaskImage:'linear-gradient(270deg,#000,transparent)',maskImage:'linear-gradient(270deg,#000,transparent)'}}><span className="absolute right-5 bottom-2 text-5xl sm:text-7xl font-black tracking-tighter uppercase" style={{color:club[1],opacity:.35}}>{club[0].split(' ').pop()}</span></div>
@@ -48,8 +49,8 @@ export function Profile(){
     {!edit&&<Btn v="s" onClick={()=>setEdit(true)} className="self-start"><I n="edit" s={15}/>Edit profile</Btn>}</div></div>
   {edit&&<section><h2 className="font-bold text-lg mb-4">Edit profile</h2><Editor onClose={()=>setEdit(false)}/></section>}
   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"><Stat l="Total points" v={ME.points.toLocaleString()} ic="trophy" c="text-gold"/><Stat l="Accuracy" v={ME.acc+'%'} ic="check" c="text-emerald-400"/><Stat l="Current streak" v={ME.streak} ic="flame" c="text-flame"/><Stat l="Longest streak" v={ME.longest} ic="bolt" c="text-sky"/></div>
-  <p className="text-[11px] text-mute -mt-5">Stats and history shown here are sample data for the prototype.</p>
+  <p className="text-[11px] text-mute -mt-5">Points, accuracy, streaks and competition history are placeholders until Phase 2. Recent predictions are your real saved picks.</p>
   <section><h2 className="font-bold text-lg mb-4">Achievements</h2><Badges compact/></section>
   <div className="grid lg:grid-cols-2 gap-6">
-   <section><h2 className="font-bold text-lg mb-4">Recent predictions</h2><div className="rounded-2xl bg-card border border-line divide-y divide-line">{PRED.map(r=><div key={r[0]} className="flex items-center gap-3 px-4 py-3"><div className={`w-8 h-8 rounded-full grid place-items-center shrink-0 ${r[3]?'bg-emerald-400/10 text-emerald-400':'bg-red-500/10 text-red-400'}`}><I n={r[3]?'check':'x'} s={14}/></div><div className="flex-1 min-w-0"><p className="text-sm font-semibold truncate">{r[0]}</p><p className="text-xs text-mute">{r[1]}</p></div><span className="text-sm font-extrabold">{r[2]} <span className="text-mute font-medium text-[11px]">pts</span></span></div>)}</div></section>
+   <section><h2 className="font-bold text-lg mb-4">Recent predictions</h2>{mine.length?<div className="rounded-2xl bg-card border border-line divide-y divide-line">{mine.map(p=>{const m=rehydrate(p.m),L=marketLines(p,m),v=L.map(([k])=>verdict(m,p,k)),done=m.st==='ft'&&m.hasScore,ok=done&&v.some(x=>x===true);return <div key={m.id} className="flex items-center gap-3 px-4 py-3"><div className={`w-8 h-8 rounded-full grid place-items-center shrink-0 ${!done?'bg-white/5 text-mute':ok?'bg-emerald-400/10 text-emerald-400':'bg-red-500/10 text-red-400'}`}><I n={!done?'clock':ok?'check':'x'} s={14}/></div><div className="flex-1 min-w-0"><p className="text-sm font-semibold truncate">{T[m.h][0]} vs {T[m.a][0]}</p><p className="text-xs text-mute">{L.map(l=>l[1]).join(' · ')}</p></div><span className="text-xs font-bold text-mute">{done?`${m.sc[0]}–${m.sc[1]}`:m.st==='live'?'Live':'Pending'}</span></div>})}</div>:<div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-mute">No predictions yet. Lock in a pick from Matches.</div>}</section>
    <section><h2 className="font-bold text-lg mb-4">Competition history</h2><div className="rounded-2xl bg-card border border-line divide-y divide-line">{HIST.map(r=><div key={r[0]+r[2]} className="flex items-center gap-3 px-4 py-3"><div className="w-8 h-8 rounded-full bg-gold/10 text-gold grid place-items-center shrink-0"><I n="medal" s={14}/></div><div className="flex-1 min-w-0"><p className="text-sm font-semibold truncate">{r[0]}</p><p className="text-xs text-mute">{r[2]}</p></div><span className="text-sm font-bold">{r[1]}</span></div>)}</div></section></div></div>}

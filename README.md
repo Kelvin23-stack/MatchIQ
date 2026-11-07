@@ -9,4 +9,4 @@ npm run build
 ```
 
 ## Live data
-See SETUP.md for the optional live football data setup (server-side API key).
+All football data is live from the Highlightly Football API. See SETUP.md for the server-side key and competition ids (required for the Matches, Players and Overview screens to show data).

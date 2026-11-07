@@ -5,24 +5,24 @@ import {Ctx} from './context'
 import {useStored} from './hooks'
 import {AuthProvider,useAuth} from './AuthContext'
 import {SocialProvider} from './SocialContext'
-import {Landing} from './Landing'
-import {Shell,TABS} from './Dashboard'
-import {SignUp,Login,Forgot,Reset} from './Auth'
-import {Onboarding} from './Onboarding'
-import {Toasts} from './Overlays'
-import {PredictionModal} from './PredictionModal'
-import {MatchDetail} from './MatchDetail'
-import {ShareModal} from './ShareModal'
-import {UserModal} from './UserModal'
+import {Landing} from './pages/Landing'
+import {Shell,TABS} from './pages/Dashboard'
+import {SignUp,Login,Forgot,Reset} from './pages/Auth'
+import {Onboarding} from './pages/Onboarding'
+import {Toasts} from './components/Overlays'
+import {PredictionModal} from './components/PredictionModal'
+import {MatchDetail} from './components/MatchDetail'
+import {ShareModal} from './components/social/ShareModal'
+import {UserModal} from './components/social/UserModal'
 
 const KEY='matchiq.predictions'
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
-const SHELL=TABS.map(t=>t[0]),AUTH=['signup','login','forgot','reset'],VALID=[...SHELL,...AUTH,'landing','onboarding','player','match','lplayer','lmatch'],tabOf=r=>{const b=r.split('/')[0];return b==='player'||b==='lplayer'?'players':b==='match'||b==='lmatch'?'matches':b};
+const SHELL=TABS.map(t=>t[0]),AUTH=['signup','login','forgot','reset'],VALID=[...SHELL,...AUTH,'landing','onboarding','player','match'],tabOf=r=>{const b=r.split('/')[0];return b==='player'?'players':b==='match'?'matches':b};
 
 function Router({view}){
  const {user}=useAuth();let r=view;
  const base=view.split('/')[0];
- if(!user){if(SHELL.includes(base)||['player','match','lplayer','lmatch'].includes(base)||view==='onboarding')r='login'}
+ if(!user){if(SHELL.includes(base)||['player','match'].includes(base)||view==='onboarding')r='login'}
  else if(!user.onboarded){if(view!=='landing')r='onboarding'}
  else if(AUTH.includes(view)||view==='onboarding')r='overview';
  useEffect(()=>{if(r!==view)location.replace('#'+r)},[r,view]);

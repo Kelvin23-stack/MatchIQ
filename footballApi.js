@@ -6,7 +6,7 @@ const mem=new Map(),inflight=new Map();let cooldownUntil=0;
 const SK='miq.api.';
 const readS=k=>{try{return JSON.parse(sessionStorage.getItem(SK+k))}catch(e){return null}};
 const writeS=(k,v)=>{try{sessionStorage.setItem(SK+k,JSON.stringify(v))}catch(e){/* storage full: memory cache still works */}};
-const SEASONAL=['fixtures','standings','teams','teamStats','players','topscorers','topassists'];
+const SEASONAL=['fixtures','standings'];
 export const browserTz=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){return ''}};
 const TZ_ACTIONS=['fixtures','fixture'];
 

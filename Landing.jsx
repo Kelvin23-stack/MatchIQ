@@ -2,22 +2,22 @@ import React,{useState,useEffect,useContext,useMemo} from 'react'
 import {motion,useScroll,useTransform,useSpring,useReducedMotion} from 'framer-motion'
 import {Ctx} from './context'
 import {useAuth} from './AuthContext'
-import {FIXTURES,T,LG} from './data'
+import {T,LG} from './data'
+import {useMatchDays,useNextMatches,dayStr} from './liveMatch'
+import {Async} from './LiveBits'
 import {board,flag,ini} from './compData'
 import {SEED_POSTS,userOf} from './socialData'
 import {I} from './Icon'
 import {Crest,Av,Logo,Btn,Count} from './ui'
 import {LeagueBadge} from './MatchCard'
 import {BadgeIcon} from './Badges'
-import {CommBar} from './MatchDetail'
 import night from './stadium-night.jpg'
 import crowd from './stadium-crowd.jpg'
 
 // Demonstration figures only. Replace with real statistics when the backend exists.
 export const STATS=[['Football fans',48000,'+'],['Predictions made',1200000,''],['Prediction accuracy',76,'%']];
 const NAV=[['Home','top'],['Matches','matches'],['How It Works','how'],['Leaderboard','board']];
-const F=id=>FIXTURES.find(m=>m.id===id);
-const DAYS={Today:m=>m.day===0,Tomorrow:m=>m.day===1,Upcoming:m=>m.day>=2};
+const DAYS={Today:()=>dayStr(0),Tomorrow:()=>dayStr(1),Upcoming:null};
 const FAQ=[['Is MatchIQ free to play?','Yes. MatchIQ uses virtual points only. There is no real-money gambling.'],['How are points calculated?','10 points for a correct result, 30 for an exact score (not added on top), and 5 for a correct special market such as Over/Under.'],['Can I play with friends?','Create a private league, share the invitation code, and compete on your own leaderboard.'],['Are the scores and fixtures real?','Not yet. Fixtures, live scores and statistics on this page are demonstration data until a football data provider is connected.'],['What are XP and levels?','Points rank you against others. XP is separate: it grows as you play and raises your level.']];
 const smooth=id=>{const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})};
 
@@ -28,9 +28,9 @@ const Demo=({children='Demo data'})=><span className="inline-flex items-center g
 function MiniStat({className='',children,delay=0}){return <div style={{animationDelay:delay+'s'}} className={`flt rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl p-3 sm:p-4 shadow-2xl ${className}`}>{children}</div>}
 
 function Hero({start,go}){
- const {openPick}=useContext(Ctx);const reduce=useReducedMotion();const {scrollY}=useScroll();const y=useTransform(scrollY,[0,700],[0,reduce?0:120]);const [pick,setPick]=useState('H');const m=F(2);
+ const {openPick}=useContext(Ctx);const reduce=useReducedMotion();const {scrollY}=useScroll();const y=useTransform(scrollY,[0,700],[0,reduce?0:120]);const [pick,setPick]=useState('H');const up=useNextMatches(1),m=up.list[0];
  return <section id="top" className="scope-dark relative overflow-hidden">
-  <motion.img src={night} alt="A floodlit football stadium at night" fetchpriority="high" decoding="async" style={{y}} className="absolute inset-x-0 top-0 w-full h-[118%] object-cover opacity-70"/>
+  <motion.img src={night} alt="A floodlit football stadium at night" fetchPriority="high" decoding="async" style={{y}} className="absolute inset-x-0 top-0 w-full h-[118%] object-cover opacity-70"/>
   <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/75 to-bg/10"/><div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/10 to-bg/50"/>
   <div className="relative max-w-6xl mx-auto px-5 pt-12 pb-20 lg:pt-20 lg:pb-28 grid lg:grid-cols-[1.05fr_1fr] gap-12 items-center">
    <div className="up">
@@ -42,11 +42,10 @@ function Hero({start,go}){
     <p className="text-[11px] text-white/40 mt-3">Demonstration statistics.</p></div>
    <div className="relative lg:h-[500px]">
     <div className="relative lg:absolute lg:left-2 lg:right-6 lg:top-14 rounded-3xl border border-white/10 bg-card/85 backdrop-blur-xl p-5 shadow-[0_30px_80px_-30px_rgba(0,0,0,.9)]">
-     <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-2 text-white/70"><LeagueBadge lg={m.lg}/>{m.lg}</span><span className="flex items-center gap-1.5 text-white/60"><I n="clock" s={12}/>{m.t}</span></div>
+     {m?<><div className="flex items-center justify-between text-xs"><span className="flex items-center gap-2 text-white/70"><LeagueBadge lg={m.lg}/>{m.lg}</span><span className="flex items-center gap-1.5 text-white/60"><I n="clock" s={12}/>{m.t}</span></div>
      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-5 text-center"><div className="flex flex-col items-center gap-2"><Crest k={m.h} s={60}/><span className="font-bold text-sm">{T[m.h][0]}</span></div><span className="text-white/50 font-bold">VS</span><div className="flex flex-col items-center gap-2"><Crest k={m.a} s={60}/><span className="font-bold text-sm">{T[m.a][0]}</span></div></div>
      <div className="grid grid-cols-3 gap-2 mt-5" role="group" aria-label="Pick a result">{[['H','Home Win'],['D','Draw'],['A','Away Win']].map(([k,l])=><button key={k} aria-pressed={pick===k} onClick={()=>setPick(k)} className={`rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 ${pick===k?'bg-lime text-ink border-lime':'border-white/15 bg-white/5 hover:border-white/40'}`}>{l}</button>)}</div>
-     <div className="mt-4"><CommBar m={m}/></div>
-     <Btn onClick={()=>openPick(m)} className="w-full mt-4 !py-2.5">Lock in prediction</Btn></div>
+     <Btn onClick={()=>openPick(m)} className="w-full mt-4 !py-2.5">Lock in prediction</Btn></>:<p className="text-center text-sm text-white/60 py-10">{up.loading?'Loading the next fixture…':'Upcoming fixtures from the data provider appear here.'}</p>}</div>
     <div className="mt-3 grid grid-cols-3 gap-2 lg:mt-0 lg:contents">
      <MiniStat className="lg:absolute lg:right-0 lg:top-0"><p className="text-[11px] text-white/60">Accuracy</p><p className="text-2xl font-extrabold text-emerald-400">76%</p><div className="h-1 rounded-full bg-white/10 mt-1.5"><div className="h-full w-3/4 rounded-full bg-emerald-400"/></div></MiniStat>
      <MiniStat delay={-2} className="lg:absolute lg:left-0 lg:bottom-4"><p className="text-[11px] text-white/60 flex items-center gap-1"><span className="text-flame"><I n="flame" s={12}/></span>Streak</p><p className="text-2xl font-extrabold text-flame">5</p><p className="text-[10px] text-white/50">in a row</p></MiniStat>
@@ -66,24 +65,23 @@ function FixtureCard({m,pick,onPick,onLock}){return <div className="rounded-2xl 
 
 function Matches(){
  const {openPick}=useContext(Ctx);const [tab,setTab]=useState('Today'),[picks,setPicks]=useState({});
- const list=FIXTURES.filter(m=>m.st==='upcoming'&&DAYS[tab](m)).sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time)).slice(0,4);
+ const day=DAYS[tab],byDay=useMatchDays(day?[day()]:[],{enabled:!!day,ttl:300000}),next=useNextMatches(4,{enabled:!day}),r=day?byDay:next,list=r.list.filter(m=>m.st==='upcoming').slice(0,4);
  return <section id="matches" className="max-w-6xl mx-auto px-5 py-20">
-  <Reveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8"><div><Eyebrow>Featured fixtures</Eyebrow><h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mt-3">Big Matches. <span className="text-mute">Bigger Predictions.</span></h2><div className="mt-3"><Demo>Demo fixtures</Demo></div></div>
+  <Reveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8"><div><Eyebrow>Featured fixtures</Eyebrow><h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mt-3">Big Matches. <span className="text-mute">Bigger Predictions.</span></h2></div>
    <div role="tablist" aria-label="Matchday" className="inline-flex self-start md:self-auto rounded-full border border-line bg-card p-1">{Object.keys(DAYS).map(d=><button key={d} role="tab" aria-selected={tab===d} onClick={()=>setTab(d)} className={`rounded-full px-4 sm:px-5 py-2 text-sm font-bold transition ${tab===d?'bg-lime text-ink':'text-mute hover:text-white'}`}>{d}</button>)}</div></Reveal>
-  <motion.div key={tab} initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{duration:.35}} className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{list.length?list.map(m=><FixtureCard key={m.id} m={m} pick={picks[m.id]} onPick={k=>setPicks(p=>({...p,[m.id]:p[m.id]===k?undefined:k}))} onLock={()=>openPick(m)}/>):<p className="col-span-full text-center text-mute py-12">No fixtures for this day.</p>}</motion.div></section>}
+  <motion.div key={tab} initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{duration:.35}} className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">{r.loading&&!r.data?<p className="col-span-full text-center text-mute py-12">Loading fixtures…</p>:r.error&&!r.data?<p className="col-span-full text-center text-mute py-12">Fixtures could not be loaded right now.</p>:list.length?list.map(m=><FixtureCard key={m.id} m={m} pick={picks[m.id]} onPick={k=>setPicks(p=>({...p,[m.id]:p[m.id]===k?undefined:k}))} onLock={()=>openPick(m)}/>):<p className="col-span-full text-center text-mute py-12">No fixtures for this day.</p>}</motion.div></section>}
 
 function Live(){
- const {setDetail}=useContext(Ctx);
+ const {setDetail,nav}=useContext(Ctx);const lr=useMatchDays([dayStr(0)],{live:true,ttl:45000,poll:60000}),liveList=lr.list.filter(m=>m.st==='live').slice(0,3);
  return <section className="scope-dark relative overflow-hidden border-y border-line">
   <img src={crowd} alt="A packed stadium crowd cheering under the floodlights" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-40"/>
   <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg/60 to-bg"/>
   <div className="relative max-w-6xl mx-auto px-5 py-20">
-   <Reveal className="flex flex-wrap items-center justify-between gap-4 mb-8"><div><Eyebrow c="text-red-400">Live match centre</Eyebrow><h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mt-3">The Game Is On.</h2></div><Demo>Demonstration scores, not real matches</Demo></Reveal>
-   <div className="grid lg:grid-cols-3 gap-4">{[7,8,9].map((id,i)=>{const m=F(id);return <Reveal key={id} delay={i*.1}><div className="rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl p-5">
-    <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5 text-red-400 font-bold bg-red-500/10 border border-red-500/20 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>LIVE · {m.min}'</span><span className="text-white/60">{m.lg}</span></div>
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-5 text-center"><div className="flex flex-col items-center gap-2"><Crest k={m.h} s={46}/><span className="text-xs font-bold">{T[m.h][0]}</span></div><span className="text-3xl font-extrabold tabular-nums">{m.sc[0]}<span className="text-white/40 mx-1">–</span>{m.sc[1]}</span><div className="flex flex-col items-center gap-2"><Crest k={m.a} s={46}/><span className="text-xs font-bold">{T[m.a][0]}</span></div></div>
-    <p className="text-[11px] text-white/50 text-center mt-5 mb-2">Community predictions</p><CommBar m={m}/>
-    <Btn v="s" onClick={()=>setDetail(m)} className="w-full mt-5 !py-2.5">View Match</Btn></div></Reveal>})}</div></div></section>}
+   <Reveal className="flex flex-wrap items-center justify-between gap-4 mb-8"><div><Eyebrow c="text-red-400">Live match centre</Eyebrow><h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mt-3">The Game Is On.</h2></div></Reveal>
+   <div className="grid lg:grid-cols-3 gap-4">{liveList.map((m,i)=>{return <Reveal key={m.id} delay={i*.1}><div className="rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl p-5">
+    <div className="flex items-center justify-between text-xs"><span className="flex items-center gap-1.5 text-red-400 font-bold bg-red-500/10 border border-red-500/20 rounded-full px-2.5 py-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>LIVE{m.min!=null?` · ${m.min}'`:''}</span><span className="text-white/60">{m.lg}</span></div>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-5 text-center"><div className="flex flex-col items-center gap-2"><Crest k={m.h} s={46}/><span className="text-xs font-bold">{T[m.h][0]}</span></div><span className="text-3xl font-extrabold tabular-nums">{m.hasScore?m.sc[0]:'–'}<span className="text-white/40 mx-1">–</span>{m.hasScore?m.sc[1]:'–'}</span><div className="flex flex-col items-center gap-2"><Crest k={m.a} s={46}/><span className="text-xs font-bold">{T[m.a][0]}</span></div></div>
+    <Btn v="s" onClick={()=>setDetail(m)} className="w-full mt-5 !py-2.5">View Match</Btn></div></Reveal>})}{!liveList.length&&<div className="lg:col-span-3 rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl p-8 text-center text-white/70"><p className="font-bold text-white">{lr.loading&&!lr.data?'Checking live matches…':'No matches are live right now.'}</p><Btn v="s" onClick={()=>nav('matches')} className="mt-4">See fixtures</Btn></div>}</div></div></section>}
 
 function Bento(){
  const tile='rounded-3xl border border-line p-6 overflow-hidden relative';
@@ -122,7 +120,7 @@ function Board(){
    <div className="px-5 py-3 text-[11px] text-mute border-t border-line bg-bg2">Sample players and scores</div></div></Reveal></section>}
 
 function Community(){
- const {nav}=useContext(Ctx);const posts=['p1','p2','p5'].map(id=>SEED_POSTS.find(p=>p.id===id));
+ const {nav}=useContext(Ctx);const posts=['p2','p5','p7'].map(id=>SEED_POSTS.find(p=>p.id===id));
  return <section className="bg-bg2 border-y border-line"><div className="max-w-6xl mx-auto px-5 py-20">
   <Reveal className="max-w-2xl mb-12"><Eyebrow c="text-violet-400">Community</Eyebrow><h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mt-3">Your Club. Your People. Your Predictions.</h2></Reveal>
   <div className="grid md:grid-cols-3 gap-5 items-start">{posts.map((p,i)=>{const u=userOf(p.user);return <Reveal key={p.id} delay={i*.1} className={i===1?'md:mt-10':''}><article className="rounded-2xl border border-line bg-card p-5 transition hover:border-white/25">

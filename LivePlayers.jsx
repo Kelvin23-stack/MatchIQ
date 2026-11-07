@@ -1,127 +1,95 @@
 import React,{useState,useEffect,useContext} from 'react'
 import {Ctx} from './context'
-import {api,useApi} from './footballApi'
-import {normPlayers,normPlayer,normFixtures,normFixturePlayers,pickStats,ratingText,per90} from './liveData'
+import {useApi} from './footballApi'
+import {normPlayerList,normPlayerProfile,normPlayerStats} from './liveData'
 import {I} from './Icon'
 import {Btn} from './ui'
-import {TeamLogo,PhotoAvatar,Async,Skeleton,ErrorBox,DataBanner,errText} from './LiveBits'
+import {PhotoAvatar,Async,Skeleton,ErrorBox,DataBanner} from './LiveBits'
 import {Crumbs,Empty,StatTile} from './PlayerBits'
 
-const POS=['All','Goalkeeper','Defender','Midfielder','Attacker'];
-const sel='rounded-xl bg-card border border-line px-3 py-2.5 text-sm font-semibold outline-none focus:border-white/40 min-w-0';
+// Highlightly exposes players by NAME SEARCH, profile and statistics only (no squads, no top-scorer lists, no per-match ratings).
 const useDebounced=(v,ms=600)=>{const [d,setD]=useState(v);useEffect(()=>{const t=setTimeout(()=>setD(v),ms);return()=>clearTimeout(t)},[v]);return d};
-const useLeagues=()=>{const c=useApi('config',{},{ttl:600000});return (c.data&&c.data.leagues)||['39']};
 const fmt=v=>v==null?'–':Number(v).toLocaleString();
-const Rating=({v})=>v==null?<span className="text-[10px] text-mute border border-line rounded-lg px-2 py-1 text-center leading-tight">Rating<br/>unavailable</span>:<span className="inline-flex flex-col items-center rounded-xl px-2.5 py-1 border border-sky/40 bg-sky/10 text-sky shrink-0"><b className="text-lg leading-none tabular-nums">{Number(v).toFixed(2)}</b><span className="text-[8px] uppercase tracking-wider mt-0.5">provider</span></span>;
+const sel='rounded-xl bg-card border border-line px-3 py-2.5 text-sm font-semibold outline-none focus:border-white/40 min-w-0';
+const MIN=3;
 
-function Card({p,leagues}){const {nav}=useContext(Ctx);const s=pickStats(p,leagues)||{};
+function usePlayerSearch(q){const qd=useDebounced(q.trim());const on=qd.length>=MIN;const r=useApi('players',{name:qd},{enabled:on,ttl:1800000});return{r,on,qd,list:on&&r.data?normPlayerList(r.data):[]}}
+
+function Card({p}){const {nav}=useContext(Ctx);
  return <article className="rounded-2xl border border-line bg-card p-5 transition hover:border-white/30 hover:-translate-y-1">
-  <div className="flex items-start justify-between gap-3"><PhotoAvatar src={p.photo} name={p.name} s={60}/><Rating v={s.rating}/></div>
-  <h3 className="mt-4 font-extrabold text-lg leading-tight">{p.name}</h3>
-  <p className="text-xs text-mute mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">{s.teamName&&<span className="flex items-center gap-1.5"><TeamLogo t={{name:s.teamName,logo:s.teamLogo}} s={16}/>{s.teamName}</span>}{s.position&&<><span>·</span><span>{s.position}</span></>}</p>
-  <p className="text-xs text-mute mt-1">{[p.nationality,s.number!=null?`#${s.number}`:null,p.age!=null?`Age ${p.age}`:null].filter(Boolean).join(' · ')}</p>
-  <p className="text-[10px] text-mute mt-2">{s.leagueName||'Competition n/a'}{s.season?` · ${s.season}`:''}</p>
-  <div className="grid grid-cols-4 gap-2 mt-3 text-center">{[['Apps',s.apps],['Goals',s.goals],['Assists',s.assists],['Mins',s.minutes]].map(([l,v])=><div key={l} className="rounded-lg bg-bg2 border border-line py-2"><p className="text-sm font-extrabold tabular-nums">{fmt(v)}</p><p className="text-[9px] uppercase tracking-wider text-mute">{l}</p></div>)}</div>
+  <div className="flex items-center gap-4"><PhotoAvatar src={p.photo} name={p.name} s={60}/><div className="min-w-0"><h3 className="font-extrabold text-lg leading-tight truncate">{p.name}</h3>{p.fullName&&p.fullName!==p.name&&<p className="text-xs text-mute truncate">{p.fullName}</p>}</div></div>
   <button onClick={()=>nav('lplayer/'+p.id)} aria-label={`View profile: ${p.name}`} className="mt-4 w-full rounded-xl bg-lime text-ink font-bold text-sm py-2.5 transition hover:brightness-110 active:scale-95">View Profile</button></article>}
 
 function Discover(){
- const leagues=useLeagues(),teams=useApi('teams',{},{ttl:86400000});
- const [club,setClub]=useState(''),[q,setQ]=useState(''),[page,setPage]=useState(1),[pos,setPos]=useState('All'),[sort,setSort]=useState('rating'),[src,setSrc]=useState('topscorers');
- const qd=useDebounced(q.trim()),searching=qd.length>=4;
- const act=searching||club?'players':src;const params=searching?{search:qd}:club?{team:club,page}:{};
- const r=useApi(act,params,{ttl:3600000});
- let list=normPlayers(r.data).filter(p=>pos==='All'||((pickStats(p,leagues)||{}).position)===pos);
- const val=p=>{const s=pickStats(p,leagues)||{};return sort==='rating'?s.rating:sort==='goals'?s.goals:sort==='assists'?s.assists:s.apps};
- list=[...list].sort((a,b)=>(val(b)??-1)-(val(a)??-1));
- const tl=(teams.data||[]).map(x=>({id:x.team.id,name:x.team.name})).sort((a,b)=>a.name.localeCompare(b.name));
+ const [q,setQ]=useState('');const {r,on,list}=usePlayerSearch(q);const total=r.paging&&r.paging.totalCount;
  return <div>
-  <div className="rounded-2xl border border-line bg-card p-3 sm:p-4 mb-5 grid sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-3">
-   <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-mute"><I n="search" s={16}/></span><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Search players (4+ letters)" aria-label="Search players" className={`${sel} w-full pl-10`}/></div>
-   <select value={club} onChange={e=>{setClub(e.target.value);setPage(1)}} aria-label="Club" className={sel}><option value="">Top players</option>{tl.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>
-   <select value={pos} onChange={e=>setPos(e.target.value)} aria-label="Position" className={sel}>{POS.map(p=><option key={p} value={p}>{p==='All'?'All positions':p}</option>)}</select>
-   <select value={sort} onChange={e=>setSort(e.target.value)} aria-label="Sort by" className={sel}><option value="rating">Highest rating</option><option value="goals">Most goals</option><option value="assists">Most assists</option><option value="apps">Most appearances</option></select>
-   <select value={src} onChange={e=>setSrc(e.target.value)} disabled={searching||!!club} aria-label="Top list" className={`${sel} disabled:opacity-40`}><option value="topscorers">Top scorers</option><option value="topassists">Top assists</option></select></div>
-  <p className="text-[11px] text-mute mb-4">{searching?`Search results for “${qd}”`:club?'Squad statistics from the provider (20 per page)':'The provider’s top 20 list for the selected season'}. Ratings are the provider’s ratings, shown as returned. Each new search or club uses API requests, so results are cached.</p>
-  {q.trim().length>0&&q.trim().length<4&&<p className="text-xs text-amber-400 mb-3">Type at least 4 letters to search (provider requirement).</p>}
-  <Async s={r}>{list.length?<><div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{list.map(p=><Card key={p.id} p={p} leagues={leagues}/>)}</div>
-   {r.paging&&r.paging.total>1&&<div className="flex items-center justify-center gap-3 mt-6"><Btn v="s" onClick={()=>setPage(Math.max(1,page-1))} className={page<=1?'opacity-40 pointer-events-none':''}>Previous</Btn><span className="text-sm text-mute">Page {r.paging.current} of {r.paging.total}</span><Btn v="s" onClick={()=>setPage(page+1)} className={page>=r.paging.total?'opacity-40 pointer-events-none':''}>Next</Btn></div>}</>
-   :<Empty title="No players to show" body={searching?'The provider found nobody for that search in this season.':'The provider returned no players for this selection.'}/>}</Async></div>}
+  <div className="relative mb-5 max-w-xl"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-mute"><I n="search" s={16}/></span><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search players by name (at least 3 letters)" aria-label="Search players" className={`${sel} w-full pl-10`}/></div>
+  {!on?<Empty icon="search" title="Search for a player" body="Type a name to look up real player profiles and statistics from the data provider. The provider does not offer club squad lists or top-scorer tables."/>
+  :<Async s={r}>{list.length?<><p className="text-sm text-mute mb-4">{total!=null&&total>list.length?`Showing ${list.length} of ${total} players. Refine your search to narrow it down.`:`${list.length} player${list.length===1?'':'s'}`}</p><div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{list.map(p=><Card key={p.id} p={p}/>)}</div></>:<Empty title="No players found" body="Try a different spelling or a longer name."/>}</Async>}</div>}
 
-const bar=(x,y,sc)=>[x==null?0:x/sc*100,y==null?0:y/sc*100];
-const METRICS=[['rating','Provider rating','rating'],['apps','Appearances','count'],['minutes','Minutes played','count'],['goals','Goals','rate'],['assists','Assists','rate'],['sot','Shots on target','rate'],['keyPasses','Key passes','rate'],['passAcc','Pass accuracy (as provided)','pct'],['saves','Saves','rate']];
+// latest season present in perCompetition, aggregated over every competition of that season
+const latest=st=>{if(!st||!st.perCompetition.length)return null;const rows=st.perCompetition.filter(r=>r.season);if(!rows.length)return null;
+ const key=s=>{const n=parseInt(s,10);return Number.isNaN(n)?-1:n};const top=rows.reduce((m,r)=>key(r.season)>key(m)?r.season:m,rows[0].season),sel_=rows.filter(r=>r.season===top);
+ const sum=k=>sel_.every(r=>r[k]==null)?null:sel_.reduce((a,r)=>a+(r[k]||0),0);
+ return{season:top,competitions:sel_.length,apps:sum('apps'),minutes:sum('minutes'),goals:sum('goals'),assists:sum('assists'),yellow:sum('yellow'),red:sum('red'),cleanSheets:sum('cleanSheets'),conceded:sum('conceded')}};
+const p90=(v,m)=>v==null||!m?null:Math.round(v/m*90*100)/100;
+
 function PickBox({label,id,onPick}){
- const [q,setQ]=useState('');const qd=useDebounced(q.trim());const r=useApi('players',{search:qd},{enabled:qd.length>=4&&!id,ttl:3600000});const list=normPlayers(r.data).slice(0,6);
- if(id)return <button onClick={()=>onPick('')} className="text-xs text-sky font-semibold hover:underline">Change {label}</button>;
- return <div><input value={q} onChange={e=>setQ(e.target.value)} placeholder={`Search ${label} (4+ letters)`} aria-label={`Search ${label}`} className={`${sel} w-full`}/>
-  {qd.length>=4&&<div className="mt-2 rounded-xl border border-line bg-card divide-y divide-line">{r.loading&&!r.data?<p className="p-3 text-xs text-mute">Searching…</p>:r.error&&!r.data?<p className="p-3 text-xs text-red-400">{errText(r.error)}</p>:list.length?list.map(p=>{const s=pickStats(p,[])||{};return <button key={p.id} onClick={()=>onPick(String(p.id))} className="w-full flex items-center gap-3 p-2.5 text-left hover:bg-white/5"><PhotoAvatar src={p.photo} name={p.name} s={32}/><span className="text-sm font-semibold flex-1 truncate">{p.name}</span><span className="text-[11px] text-mute">{s.teamName}</span></button>}):<p className="p-3 text-xs text-mute">No players found.</p>}</div>}</div>}
+ const [q,setQ]=useState('');const {r,on,list}=usePlayerSearch(q);const cur=useApi('player',{id},{enabled:!!id,ttl:86400000});const name=cur.data&&cur.data[0]&&cur.data[0].name;
+ return <div className="relative"><p className="text-xs font-bold uppercase tracking-wider text-mute mb-1.5">{label}{name?` · ${name}`:''}</p>
+  <input value={q} onChange={e=>setQ(e.target.value)} placeholder={id?'Search to change player…':'Search a player…'} aria-label={label} className={`${sel} w-full`}/>
+  {on&&<div className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-xl border border-line bg-bg2 shadow-xl divide-y divide-line">{r.loading&&!r.data?<p className="p-3 text-xs text-mute">Searching…</p>:list.length?list.slice(0,10).map(p=><button key={p.id} onClick={()=>{onPick(p.id);setQ('')}} className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-white/5"><PhotoAvatar src={p.photo} name={p.name} s={28}/><span className="truncate font-semibold">{p.name}</span></button>):<p className="p-3 text-xs text-mute">No players found.</p>}</div>}</div>}
+
+function usePlayer(id){const p=useApi('player',{id},{enabled:!!id,ttl:86400000}),s=useApi('playerStats',{id},{enabled:!!id,ttl:86400000});
+ return{p,s,prof:p.data&&p.data[0]?normPlayerProfile(p.data[0]):null,stats:s.data&&s.data[0]?normPlayerStats(s.data[0]):null}}
+const Head=({prof,L,nav})=><div className="text-center"><div className="flex justify-center"><PhotoAvatar src={prof.photo} name={prof.name} s={72}/></div><p className="font-extrabold mt-3">{prof.name}</p><p className="text-xs text-mute mt-1">{[prof.position,prof.club].filter(Boolean).join(' · ')||'Details not provided'}</p><p className="text-[11px] text-mute mt-1">{L?`Season ${L.season}`:'No statistics provided'}</p><button onClick={()=>nav('lplayer/'+prof.id)} className="mt-3 text-xs font-bold text-sky hover:underline">View profile</button></div>;
+const ROWS=[['apps','Appearances','count'],['minutes','Minutes played','count'],['goals','Goals','rate'],['assists','Assists','rate'],['yellow','Yellow cards','count'],['red','Red cards','count']];
 
 function Compare({a,b}){
- const {nav}=useContext(Ctx);const leagues=useLeagues(),[mode,setMode]=useState('tot');
+ const {nav}=useContext(Ctx);const [mode,setMode]=useState('tot');const go=(x,y)=>nav(`players/compare/${x||'-'}/${y||'-'}`);
  const ida=a&&a!=='-'?a:'',idb=b&&b!=='-'?b:'';
- const ra=useApi('players',{id:ida},{enabled:!!ida,ttl:3600000}),rb=useApi('players',{id:idb},{enabled:!!idb,ttl:3600000});
- const pa=normPlayer(ra.data&&ra.data[0]),pb=normPlayer(rb.data&&rb.data[0]),sa=pickStats(pa,leagues),sb=pickStats(pb,leagues);
- const go=(x,y)=>nav(`players/compare/${x||'-'}/${y||'-'}`);
- const same=sa&&sb&&sa.position===sb.position,gk=[sa,sb].filter(s=>s&&s.position==='Goalkeeper').length;
- const keys=gk===2?['rating','apps','minutes','saves']:gk===1?['rating','apps','minutes']:['rating','apps','minutes','goals','assists','sot','keyPasses','passAcc'];
- const Head=({p,s})=>p&&s?<div className="text-center"><div className="flex justify-center"><PhotoAvatar src={p.photo} name={p.name} s={72}/></div><p className="font-extrabold mt-3">{p.name}</p><p className="text-xs text-mute flex items-center justify-center gap-1.5 mt-1"><TeamLogo t={{name:s.teamName,logo:s.teamLogo}} s={16}/>{s.teamName} · {s.position||'position n/a'}</p><p className="text-[10px] text-mute mt-1">{s.leagueName} {s.season}</p><div className="mt-3 flex justify-center"><Rating v={s.rating}/></div><button onClick={()=>nav('lplayer/'+p.id)} className="mt-3 text-xs font-bold text-sky hover:underline">View profile</button></div>:null;
+ const PA=usePlayer(ida),PB=usePlayer(idb);const la=latest(PA.stats),lb=latest(PB.stats);
+ const val=(L,k,kind)=>L?(kind==='rate'&&mode==='p90'?p90(L[k],L.minutes):L[k]):null;
  return <div>
-  <div className="grid sm:grid-cols-2 gap-4"><div><PickBox label="player A" id={ida} onPick={v=>go(v,idb)}/></div><div><PickBox label="player B" id={idb} onPick={v=>go(ida,v)}/></div></div>
-  {(!ida||!idb)?<div className="mt-6"><Empty title="Choose two players" body="Search for a player on each side. Statistics come from the provider for the selected season."/></div>
-  :(ra.loading&&!ra.data)||(rb.loading&&!rb.data)?<div className="mt-6"><Skeleton n={2} h="h-40"/></div>
-  :(ra.error&&!ra.data)||(rb.error&&!rb.data)?<div className="mt-6"><ErrorBox e={ra.error||rb.error} retry={()=>{ra.reload();rb.reload()}}/></div>
-  :!sa||!sb?<div className="mt-6"><Empty title="No statistics returned" body="The provider has no season statistics for one of these players."/></div>
-  :<div className="mt-6">
-   {!same&&<div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm">These players have different positions, so only broadly comparable metrics are shown. Interpret with care.</div>}
-   {(sa.leagueId!==sb.leagueId||sa.season!==sb.season)&&<div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm">The statistics come from different competitions or seasons ({sa.leagueName} {sa.season} vs {sb.leagueName} {sb.season}).</div>}
-   <div className="rounded-3xl border border-line bg-card p-5 sm:p-7"><div className="grid grid-cols-2 gap-4"><Head p={pa} s={sa}/><Head p={pb} s={sb}/></div>
-    <div className="flex items-center justify-between gap-3 mt-7 mb-4"><p className="text-xs text-mute">Provider data · missing values are not charted</p><div role="group" aria-label="Value mode" className="inline-flex rounded-full border border-line bg-bg2 p-1">{[['tot','Totals'],['p90','Per 90']].map(([k,l])=><button key={k} aria-pressed={mode===k} onClick={()=>setMode(k)} className={`rounded-full px-3.5 py-1 text-xs font-bold transition ${mode===k?'bg-lime text-ink':'text-mute'}`}>{l}</button>)}</div></div>
-    <div className="space-y-5">{keys.map(k=>{const [,label,kind]=METRICS.find(m=>m[0]===k);const g=(s)=>kind==='rate'&&mode==='p90'?per90(s[k],s.minutes):s[k],x=g(sa),y=g(sb),sc=kind==='rating'?10:kind==='pct'?100:Math.max(x||0,y||0,.0001),[bx,by]=bar(x,y,sc),f=v=>v==null?'–':kind==='rating'?Number(v).toFixed(2):kind==='rate'&&mode==='p90'?v.toFixed(2):Number(v).toLocaleString();
-     return <div key={k}><p className="text-center text-xs text-mute mb-1.5">{label}{kind==='rate'&&mode==='p90'?' · per 90':''}</p><div className="grid grid-cols-[3.5rem_1fr_1fr_3.5rem] items-center gap-2"><span className={`text-right text-sm tabular-nums ${(x??-1)>=(y??-1)?'font-extrabold':'text-mute'}`}>{f(x)}</span><div className="h-2.5 rounded-l-full bg-bg2 flex justify-end overflow-hidden"><div className="h-full rounded-l-full" style={{width:bx+'%',background:'#34D399'}}/></div><div className="h-2.5 rounded-r-full bg-bg2 overflow-hidden"><div className="h-full rounded-r-full" style={{width:by+'%',background:'#5AA9FF'}}/></div><span className={`text-sm tabular-nums ${(y??-1)>=(x??-1)?'font-extrabold':'text-mute'}`}>{f(y)}</span></div></div>})}</div>
-    <p className="text-[11px] text-mute mt-6">One shared scale per metric. Provider ratings are out of 10. Per-90 values are calculated from the provider's totals and minutes.</p></div></div>}</div>}
+  <div className="grid sm:grid-cols-[1fr_auto_1fr] gap-3 items-end"><PickBox label="Player A" id={ida} onPick={x=>go(x,idb)}/><button onClick={()=>go(idb,ida)} aria-label="Swap players" className="mx-auto rounded-full border border-line bg-card w-10 h-10 grid place-items-center hover:border-white/40 transition"><I n="right" s={16}/></button><PickBox label="Player B" id={idb} onPick={x=>go(ida,x)}/></div>
+  {!ida||!idb?<div className="mt-6"><Empty icon="users" title="Pick two players to compare" body="Search for each player above. Statistics come from the data provider (latest season, all competitions combined)."/></div>
+  :(PA.p.loading||PB.p.loading||PA.s.loading||PB.s.loading)&&!(PA.prof&&PB.prof)?<div className="mt-6"><Skeleton n={2} h="h-40"/></div>
+  :!PA.prof||!PB.prof?<div className="mt-6"><ErrorBox e={PA.p.error||PB.p.error||{code:'provider',message:'One of the players could not be loaded.'}} retry={()=>{PA.p.reload();PB.p.reload()}}/></div>
+  :<div className="mt-6 rounded-3xl border border-line bg-card p-5 sm:p-7"><div className="grid grid-cols-2 gap-4"><Head prof={PA.prof} L={la} nav={nav}/><Head prof={PB.prof} L={lb} nav={nav}/></div>
+   <div className="flex flex-wrap items-center justify-between gap-3 mt-7 mb-4"><p className="text-xs text-mute">Latest season, all competitions combined · provider data</p><div role="group" aria-label="Value mode" className="inline-flex rounded-full border border-line bg-bg2 p-1">{[['tot','Totals'],['p90','Per 90']].map(([k,l])=><button key={k} aria-pressed={mode===k} onClick={()=>setMode(k)} className={`rounded-full px-3.5 py-1 text-xs font-bold transition ${mode===k?'bg-lime text-ink':'text-mute'}`}>{l}</button>)}</div></div>
+   {!la&&!lb?<p className="text-sm text-mute text-center py-6">The provider returned no statistics for either player.</p>:<div className="space-y-5">{ROWS.map(([k,label,kind])=>{const x=val(la,k,kind),y=val(lb,k,kind),sc=Math.max(x||0,y||0,.0001),f=v=>v==null?'–':mode==='p90'&&kind==='rate'?Number(v).toFixed(2):Number(v).toLocaleString();
+    return <div key={k}><p className="text-center text-xs text-mute mb-1.5">{label}{kind==='rate'&&mode==='p90'?' · per 90':''}</p><div className="grid grid-cols-[3.5rem_1fr_1fr_3.5rem] items-center gap-2"><span className={`text-right text-sm tabular-nums ${(x||0)>=(y||0)?'font-extrabold':'text-mute'}`}>{f(x)}</span><div className="h-2.5 rounded-l-full bg-bg2 flex justify-end overflow-hidden"><div className="h-full rounded-l-full transition-all duration-500" style={{width:(x||0)/sc*100+'%',background:'#34D399'}}/></div><div className="h-2.5 rounded-r-full bg-bg2 overflow-hidden"><div className="h-full rounded-r-full transition-all duration-500" style={{width:(y||0)/sc*100+'%',background:'#5AA9FF'}}/></div><span className={`text-sm tabular-nums ${(y||0)>=(x||0)?'font-extrabold':'text-mute'}`}>{f(y)}</span></div></div>})}</div>}
+   <p className="text-[11px] text-mute mt-6">Seasons may differ between the two players. Missing values show "–" and are never estimated.</p></div>}</div>}
 
 export function LivePlayersPage({sub,a,b}){
  const {nav}=useContext(Ctx);const cmp=sub==='compare';
  return <div>
-  <div className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-6 sm:p-9 mb-6"><h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">Player Intelligence</h1><p className="text-mute mt-3 max-w-xl">Explore player performance, form and match impact.</p><p className="text-xs text-mute mt-3">Live data from API-Football</p></div>
+  <div className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-6 sm:p-9 mb-6"><div className="glow absolute inset-0 pointer-events-none"/><h1 className="relative text-3xl sm:text-5xl font-extrabold tracking-tight">Player Intelligence</h1><p className="relative text-mute mt-3 max-w-xl">Explore real player profiles and career statistics.</p></div>
   <div role="tablist" className="flex gap-1 border-b border-line mb-6">{[['Discover',''],['Compare players','/compare']].map(([l,s])=><button key={l} role="tab" aria-selected={(s==='/compare')===cmp} onClick={()=>nav('players'+s)} className={`px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition ${(s==='/compare')===cmp?'border-lime text-white':'border-transparent text-mute hover:text-white'}`}>{l}</button>)}</div>
   {cmp?<Compare a={a} b={b}/>:<Discover/>}</div>}
 
-// Recent matches: 1 fixtures request + 1 fixturePlayers request per match (shared cache), only on demand.
-function Recent({p,s}){
- const {nav}=useContext(Ctx);const [st,setSt]=useState({state:'idle',rows:[],err:null});
- const run=async()=>{setSt({state:'loading',rows:[],err:null});const rows=[];
-  try{const f=await api('fixtures',{team:s.teamId,last:5},{ttl:1800000});const list=normFixtures(f.data).filter(x=>x.status.kind==='finished');
-   for(const x of list){const r=await api('fixturePlayers',{fixture:x.id,final:1},{ttl:21600000});const me=normFixturePlayers(r.data).find(q=>q.id===p.id);rows.push({fx:x,me});setSt({state:'loading',rows:[...rows],err:null})}
-   setSt({state:'done',rows,err:null})}catch(e){setSt({state:'error',rows,err:e})}};
- const chart=st.rows.slice().reverse();
- return <section className="mt-8"><h2 className="font-extrabold text-lg mb-3">Recent match performances</h2>
-  {st.state==='idle'&&<div className="rounded-2xl border border-dashed border-line p-6 text-center"><p className="text-sm text-mute">Loads the last 5 finished matches of {s.teamName} (about 6 API requests, cached afterwards). Match statistics are separate from the season totals above.</p><Btn className="mt-4" onClick={run}>Load recent matches</Btn></div>}
-  {st.state==='loading'&&st.rows.length===0&&<Skeleton n={2} h="h-16"/>}
-  {st.state==='error'&&<ErrorBox e={st.err} retry={run}/>}
-  {st.rows.length>0&&<><div className="rounded-2xl border border-line bg-card overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="text-[10px] uppercase tracking-wider text-mute border-b border-line"><th className="text-left px-4 py-2.5">Match</th>{['Min','Rating','G','A','YC','RC'].map(h=><th key={h} className="px-2 py-2.5 text-center">{h}</th>)}</tr></thead>
-   <tbody className="divide-y divide-line">{st.rows.map(({fx,me})=><tr key={fx.id} onClick={()=>nav(`lmatch/${fx.id}/lineups`)} className="hover:bg-white/[0.04] cursor-pointer"><td className="px-4 py-2.5"><span className="block font-semibold">{fx.home.name} {fx.goals.home??'–'}–{fx.goals.away??'–'} {fx.away.name}</span><span className="text-[10px] text-mute">{new Date(fx.timestamp*1000).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'})}</span></td>{me?[me.min,me.rating!=null?me.rating.toFixed(1):null,me.g,me.a,me.y,me.r].map((v,i)=><td key={i} className="px-2 py-2.5 text-center tabular-nums">{v==null?'–':v}</td>):<td colSpan={6} className="px-2 py-2.5 text-center text-xs text-mute">Did not play / no data</td>}</tr>)}</tbody></table></div>
-   <div className="grid sm:grid-cols-2 gap-4 mt-4"><div className="rounded-2xl border border-line bg-card p-5"><p className="font-bold mb-3">Match ratings</p><div className="flex items-end gap-3 h-28">{chart.map(({fx,me})=><div key={fx.id} className="flex-1 flex flex-col items-center justify-end h-full gap-1" title={`${fx.home.name} v ${fx.away.name}`}><span className="text-[10px] font-bold">{me&&me.rating!=null?me.rating.toFixed(1):'–'}</span><div className="w-full rounded-t" style={{height:me&&me.rating!=null?Math.max(4,(me.rating-4)/6*80)+'%':'2px',background:me&&me.rating!=null?'#5AA9FF':'rgb(var(--line))'}}/><span className="text-[9px] text-mute">{(fx.home.id===s.teamId?fx.away:fx.home).name.slice(0,3).toUpperCase()}</span></div>)}</div><p className="text-[11px] text-mute mt-2">Provider ratings; missing ratings are not plotted.</p></div>
-    <div className="rounded-2xl border border-line bg-card p-5"><p className="font-bold mb-3">Goals and assists</p><div className="flex items-end gap-3 h-28">{chart.map(({fx,me})=>{const g=me&&me.g||0,a=me&&me.a||0,m=Math.max(1,...chart.map(c=>Math.max(c.me&&c.me.g||0,c.me&&c.me.a||0)));return <div key={fx.id} className="flex-1 flex flex-col items-center justify-end h-full gap-1"><div className="flex items-end gap-0.5 w-full justify-center flex-1">{[[g,'#34D399'],[a,'#5AA9FF']].map(([v,c],i)=><div key={i} className="w-1/2 max-w-[14px] rounded-t" style={{height:v?v/m*80+'%':'2px',background:v?c:'rgb(var(--line))'}}/>)}</div><span className="text-[9px] text-mute">{(fx.home.id===s.teamId?fx.away:fx.home).name.slice(0,3).toUpperCase()}</span></div>})}</div><p className="text-[11px] text-mute mt-2"><span style={{color:'#34D399'}}>■</span> Goals <span style={{color:'#5AA9FF'}} className="ml-2">■</span> Assists</p></div></div></>}</section>}
-
+const Sec=({t,children})=><div className="rounded-2xl border border-line bg-card p-5"><p className="font-bold mb-3">{t}</p>{children}</div>;
 export function LivePlayerProfile({id}){
- const {nav}=useContext(Ctx);const leagues=useLeagues();const valid=/^\d+$/.test(String(id||''));
- const r=useApi('players',{id},{enabled:valid,ttl:3600000});const [i,setI]=useState(-1);
- if(!valid)return <div><Crumbs items={[{l:'Player Intelligence',go:'players'},{l:'Not found'}]}/><Empty icon="alert" title="Invalid player" body="That player id is not valid."><Btn onClick={()=>nav('players')}>Back</Btn></Empty></div>;
- const p=normPlayer(r.data&&r.data[0]);
- return <div><Crumbs items={[{l:'Player Intelligence',go:'players'},{l:p?((p.stats[0]||{}).teamName||'Club'):'Player',go:'players'},{l:p?p.name:'Profile'}]}/>
-  <Async s={r}>{!p||!p.stats.length?<Empty icon="alert" title="No statistics for this player" body="The provider returned no season statistics for this player and season. Try another season in Settings → Data source."><Btn v="s" onClick={()=>nav('players')}>Back to Player Intelligence</Btn></Empty>:(()=>{
-   const s=i>=0?p.stats[i]:pickStats(p,leagues),gk=s.position==='Goalkeeper';
-   const tiles=[['Appearances',s.apps],['Starts',s.starts],['Minutes played',s.minutes],...(gk?[['Saves',s.saves],['Goals conceded',s.conceded]]:[['Goals',s.goals],['Assists',s.assists],['Shots',s.shots],['Shots on target',s.sot],['Key passes',s.keyPasses],['Pass accuracy (as provided)',s.passAcc],['Tackles',s.tackles],['Successful dribbles',s.dribbles],['Duels won',s.duelsWon]]),['Yellow cards',s.yellow],['Red cards',s.red]].filter(([,v])=>v!=null);
-   return <>
-   <div className="rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-6 sm:p-9"><div className="flex flex-col sm:flex-row sm:items-center gap-6"><PhotoAvatar src={p.photo} name={p.name} s={110}/>
-    <div className="flex-1 min-w-0"><h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{p.name}</h1>
-     <p className="text-sm text-mute mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5"><span className="flex items-center gap-1.5"><TeamLogo t={{name:s.teamName,logo:s.teamLogo}} s={20}/>{s.teamName}</span>{s.position&&<span>{s.position}</span>}{p.nationality&&<span>{p.nationality}</span>}{s.number!=null&&<span>#{s.number}</span>}{p.age!=null&&<span>Age {p.age}</span>}{p.injured&&<span className="text-amber-400">Flagged injured</span>}</p>
-     <p className="text-xs text-mute mt-3">Statistics: <b className="text-white">{s.leagueName||'competition n/a'}</b>{s.season?` · season ${s.season}`:''}</p>
-     {p.stats.length>1&&<label className="text-xs text-mute flex items-center gap-2 mt-3">Competition<select value={i} onChange={e=>setI(Number(e.target.value))} className="rounded-lg bg-card border border-line px-2.5 py-1.5 text-sm text-white outline-none"><option value={-1}>Default</option>{p.stats.map((x,k)=><option key={k} value={k}>{x.teamName} · {x.leagueName} {x.season}</option>)}</select></label>}</div>
-    <div className="flex sm:flex-col items-center gap-2"><Rating v={s.rating}/><p className="text-[10px] text-mute">{s.rating!=null?'Provider rating':''}</p></div></div>
-    <div className="flex flex-wrap gap-3 mt-6"><Btn v="s" onClick={()=>nav(`players/compare/${p.id}/-`)}>Compare player</Btn><Btn v="s" onClick={()=>nav('players')}>All players</Btn></div></div>
-   <h2 className="font-extrabold text-lg mt-8 mb-3">Season statistics <span className="text-xs text-mute font-medium">· {s.leagueName} {s.season}</span></h2>
-   <DataBanner s={r}/>
-   {tiles.length?<div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{tiles.map(([l,v])=><StatTile key={l} l={l} v={fmt(v)} sub={['Goals','Assists','Shots','Shots on target','Key passes','Tackles','Saves'].includes(l)&&per90(v,s.minutes)!=null?`${per90(v,s.minutes).toFixed(2)} per 90`:undefined}/>)}</div>:<Empty title="No season statistics" body="The provider returned no figures for this player."/>}
-   <p className="text-[11px] text-mute mt-3">Only values the provider returns are shown. Clean sheets are not part of the provider's player statistics. Per-90 values are calculated from provider totals.</p>
-   {s.teamId&&<Recent p={p} s={s}/>}</>})()}</Async></div>}
+ const {nav}=useContext(Ctx);const valid=/^\d+$/.test(String(id||''));const {p,s,prof,stats}=usePlayer(valid?id:'');
+ if(!valid)return <div><Crumbs items={[{l:'Player Intelligence',go:'players'},{l:'Not found'}]}/><Empty icon="alert" title="Invalid player" body="That player id is not valid."><Btn onClick={()=>nav('players')}>Back to Player Intelligence</Btn></Empty></div>;
+ if(p.loading&&!p.data)return <Skeleton n={3} h="h-40"/>;
+ if(p.error&&!p.data)return <ErrorBox e={p.error} retry={p.reload}/>;
+ if(!prof)return <div><Crumbs items={[{l:'Player Intelligence',go:'players'},{l:'Not found'}]}/><Empty icon="alert" title="Player not found" body="The provider returned no player for this id."><Btn onClick={()=>nav('players')}>Back to Player Intelligence</Btn></Empty></div>;
+ const L=latest(stats),facts=[['Age',prof.age!=null?prof.age:null],['Date of birth',prof.birthDate],['Nationality',prof.nationality],['Position',[prof.position,prof.secondaryPosition].filter(Boolean).join(' / ')||null],['Current club',prof.club],['Joined',prof.joinedAt],['Contract expires',prof.contractExpiry],['Height',prof.height],['Preferred foot',prof.foot]];
+ const comp=stats?[...stats.perCompetition].sort((x,y)=>(parseInt(y.season,10)||0)-(parseInt(x.season,10)||0)):[];
+ return <div>
+  <Crumbs items={[{l:'Player Intelligence',go:'players'},{l:prof.club||'Players',go:'players'},{l:prof.name}]}/>
+  <DataBanner s={p} label="Live data · player profile"/>
+  <div className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-6 sm:p-9"><div className="flex flex-col sm:flex-row sm:items-center gap-6"><PhotoAvatar src={prof.photo} name={prof.name} s={110}/>
+   <div className="flex-1 min-w-0"><h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{prof.name}</h1>{prof.fullName&&prof.fullName!==prof.name&&<p className="text-sm text-mute mt-1">{prof.fullName}</p>}
+    <p className="text-sm text-mute mt-2">{[prof.position,prof.club,prof.nationality,prof.age!=null?`Age ${prof.age}`:null].filter(Boolean).join(' · ')||'Profile details were not provided.'}</p></div></div>
+   <div className="flex flex-wrap gap-3 mt-6"><Btn v="s" onClick={()=>nav('players/compare/'+prof.id+'/-')}>Compare player</Btn><Btn v="s" onClick={()=>nav('players')}>Search players</Btn></div></div>
+  <h2 className="font-extrabold text-lg mt-8 mb-3">{L?`Season ${L.season} · all competitions`:'Season statistics'}</h2>
+  {s.loading&&!s.data?<Skeleton n={1} h="h-24"/>:L?<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[['Appearances',L.apps],['Minutes',L.minutes],['Goals',L.goals,p90(L.goals,L.minutes)],['Assists',L.assists,p90(L.assists,L.minutes)],['Yellow cards',L.yellow],['Red cards',L.red],['Clean sheets',L.cleanSheets],['Goals conceded',L.conceded]].filter(r=>r[1]!=null).map(([l,v,pp])=><StatTile key={l} l={l} v={fmt(v)} sub={pp!=null?`${pp.toFixed(2)} per 90`:undefined}/>)}</div>:<Empty icon="clock" title="No statistics available" body={s.error?'The statistics request failed. Try again later.':'The provider has no statistics for this player.'}/>}
+  <h2 className="font-extrabold text-lg mt-8 mb-3">Profile</h2>
+  <div className="rounded-2xl border border-line bg-card divide-y divide-line">{facts.map(([l,v])=><div key={l} className="flex justify-between gap-4 px-4 py-3 text-sm"><span className="text-mute">{l}</span><span className={`font-semibold text-right ${v?'':'text-mute font-normal'}`}>{v??'Not provided'}</span></div>)}<div className="flex justify-between gap-4 px-4 py-3 text-sm"><span className="text-mute">Shirt number</span><span className="text-mute text-right">Shown in match lineups only</span></div></div>
+  {comp.length>0&&<><h2 className="font-extrabold text-lg mt-8 mb-3">By competition</h2><div className="rounded-2xl border border-line bg-card overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="text-[10px] uppercase tracking-wider text-mute border-b border-line"><th className="text-left px-4 py-2.5">Competition</th><th className="px-2 text-left">Season</th><th className="px-2">Apps</th><th className="px-2">Mins</th><th className="px-2">G</th><th className="px-2">A</th><th className="px-2">YC</th><th className="px-2">RC</th></tr></thead>
+   <tbody className="divide-y divide-line">{comp.map((r,i)=><tr key={i}><td className="px-4 py-2.5"><b className="block font-semibold">{r.league||'–'}</b><span className="text-[10px] text-mute">{r.club}</span></td><td className="px-2 text-mute">{r.season||'–'}</td>{[r.apps,r.minutes,r.goals,r.assists,r.yellow,r.red].map((v,k)=><td key={k} className="px-2 text-center tabular-nums">{fmt(v)}</td>)}</tr>)}</tbody></table></div></>}
+  {prof.transfers.length>0&&<><h2 className="font-extrabold text-lg mt-8 mb-3">Recent transfers</h2><Sec t="Most recent first (as returned by the provider)"><div className="divide-y divide-line">{prof.transfers.slice(0,5).map((t,i)=><div key={i} className="py-2.5 flex flex-wrap justify-between gap-2 text-sm"><span><b>{t.from}</b> → <b>{t.to}</b></span><span className="text-mute text-xs">{[t.type,t.season,t.fee].filter(Boolean).join(' · ')}</span></div>)}</div></Sec></>}
+  {prof.injuries.length>0&&<><h2 className="font-extrabold text-lg mt-8 mb-3">Injury history</h2><Sec t="Provider records"><div className="divide-y divide-line">{prof.injuries.slice(0,5).map((t,i)=><div key={i} className="py-2.5 flex flex-wrap justify-between gap-2 text-sm"><span className="font-semibold">{t.reason}</span><span className="text-mute text-xs">{[t.season,t.missedGames!=null?`${t.missedGames} games missed`:null].filter(Boolean).join(' · ')}</span></div>)}</div></Sec></>}
+ </div>}

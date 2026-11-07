@@ -9,14 +9,16 @@ export const PhotoAvatar=({src,name,s=56})=>{const [bad,setBad]=useState(false);
 export const fmtTime=ts=>ts?new Date(ts*1000).toLocaleString([], {weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Time to be confirmed';
 export const fmtClock=ts=>ts?new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
 export const tzName=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){return ''}};
-const MSG={not_configured:'Live data is not set up on the server yet. Add API_FOOTBALL_KEY (see SETUP.md), or switch back to Demo data in Settings.',plan:'',quota:'The daily request quota for the API plan has been used. It resets at 00:00 UTC. Showing nothing rather than made-up numbers.',rate_limit:'The data provider is rate-limiting requests. Please wait a minute and retry.',auth:'The server could not authenticate with the data provider. Check API_FOOTBALL_KEY.',timeout:'The data provider took too long to respond.',network:'Could not reach the server. Check your connection.',bad_response:'',provider:'',bad_request:'',server_error:'Unexpected server error.'};
+const MSG={not_configured:'Live data is not set up on the server yet. Add HIGHLIGHTLY_API_KEY and HIGHLIGHTLY_LEAGUES on the server (see SETUP.md).',plan:'',quota:'The daily request quota for the API plan has been used. It resets at 00:00 UTC. Showing nothing rather than made-up numbers.',rate_limit:'The data provider is rate-limiting requests. Please wait a minute and retry.',auth:'The server could not authenticate with the data provider. Check HIGHLIGHTLY_API_KEY.',timeout:'The data provider took too long to respond.',network:'Could not reach the server. Check your connection.',bad_response:'',provider:'',bad_request:'',server_error:'Unexpected server error.'};
 export const errText=e=>e?(MSG[e.code]||e.message):'';
 
-export function DataBanner({s,label='Live data · API-Football'}){
+export const PROVIDER='Highlightly';
+export function DataBanner({s,label='Live data · '+PROVIDER}){
  const {nav}=useContext(Ctx);if(!s||(!s.updatedAt&&!s.error))return null;const q=s.meta&&s.meta.quota&&s.meta.quota.day&&s.meta.quota.day.remaining;
  return <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-mute mb-4"><span className="inline-flex items-center gap-1.5 border border-line rounded-full px-2.5 py-1"><span className={`w-1.5 h-1.5 rounded-full ${s.stale?'bg-amber-400':'bg-emerald-400'}`}/>{label}</span>
   {s.updatedAt&&<span>Updated {fmtClock(s.updatedAt)}{s.fromCache?' (cached, not real-time)':''}</span>}{q!=null&&<span>{q} API requests left today</span>}
   {s.stale&&s.error&&<span className="text-amber-400">Refresh failed: {errText(s.error)} Showing cached data.</span>}
+  {s.meta&&s.meta.plan&&s.meta.plan.message&&<span className="text-amber-400">Plan notice: {s.meta.plan.message}</span>}
   <button onClick={s.reload} className="text-sky font-semibold hover:underline">Refresh</button></div>}
 
 export function ErrorBox({e,retry}){const {nav}=useContext(Ctx);return <div className="rounded-2xl border border-red-400/30 bg-red-500/5 p-6 text-center"><div className="w-11 h-11 mx-auto rounded-full bg-red-500/10 text-red-400 grid place-items-center"><I n="alert" s={20}/></div><p className="font-bold mt-3">Could not load live data</p><p className="text-sm text-mute mt-1 max-w-lg mx-auto">{errText(e)}</p>

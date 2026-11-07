@@ -1,10 +1,14 @@
 import React,{useState,useEffect,useContext} from 'react'
-import {T} from './data'
+import {T,TEAM_REG,isBrand} from './data'
+import {initials} from './intelHelpers'
 import {I} from './Icon'
 import {AvatarArt} from './Avatar'
 import {ME} from './compData'
 
-export const Crest=({k,s=44})=><div className="rounded-full grid place-items-center font-extrabold shrink-0 border border-white/10" style={{width:s,height:s,fontSize:s*.3,background:`radial-gradient(circle at 30% 25%,${T[k][1]}55,#0c110e)`,color:T[k][1]}}>{k}</div>;
+function LiveCrest({k,s}){const r=TEAM_REG[k]||{},[bad,setBad]=useState(false);
+ return r.logo&&!bad?<img src={r.logo} alt={`${r.name||''} logo`} loading="lazy" onError={()=>setBad(true)} className="object-contain shrink-0" style={{width:s,height:s}}/>
+ :<div className="rounded-full grid place-items-center font-extrabold shrink-0 border border-line bg-bg2 text-mute" style={{width:s,height:s,fontSize:s*.3}}>{initials(r.name||k)}</div>}
+export const Crest=({k,s=44})=>isBrand(k)?<div className="rounded-full grid place-items-center font-extrabold shrink-0 border border-white/10" style={{width:s,height:s,fontSize:s*.3,background:`radial-gradient(circle at 30% 25%,${T[k][1]}55,#0c110e)`,color:T[k][1]}}>{k}</div>:<LiveCrest k={k} s={s}/>;
 
 const AVC=['#5AA9FF','#FF8A3D','#B388FF','#34D399','#FF6FB5','#22D3EE','#F5C451'];
 export const Av=({t,s=36,me})=>{if(me&&ME.avatar)return <AvatarArt a={ME.avatar} s={s}/>;const c=AVC[[...t].reduce((a,x)=>a+x.charCodeAt(0),0)%AVC.length];return <div className="rounded-full grid place-items-center font-bold shrink-0" style={{width:s,height:s,fontSize:s*.34,color:me?'#080B0A':c,background:me?'#fff':c+'22',border:'1px solid '+(me?'#fff':c+'55')}}>{t}</div>}
