@@ -1,6 +1,6 @@
 import {defineConfig,loadEnv} from 'vite'
 import react from '@vitejs/plugin-react'
-import handler from './api/football.js'
+import handler from './football.js'
 
 // Local development only: serve /api/football through Vite so `npm run dev` works without the Vercel CLI.
 // The key is read from .env (HIGHLIGHTLY_API_KEY, no VITE_ prefix) into the SERVER process only.
