@@ -6,6 +6,7 @@ import {I} from './Icon'
 import {Btn} from './ui'
 import {PhotoAvatar,Async,Skeleton,ErrorBox,DataBanner} from './LiveBits'
 import {Crumbs,Empty,StatTile} from './PlayerBits'
+import {LogoLoader} from './Loader'
 
 // Highlightly exposes players by NAME SEARCH, profile and statistics only (no squads, no top-scorer lists, no per-match ratings).
 const useDebounced=(v,ms=600)=>{const [d,setD]=useState(v);useEffect(()=>{const t=setTimeout(()=>setD(v),ms);return()=>clearTimeout(t)},[v]);return d};
@@ -38,7 +39,7 @@ function PickBox({label,id,onPick}){
  const [q,setQ]=useState('');const {r,on,list}=usePlayerSearch(q);const cur=useApi('player',{id},{enabled:!!id,ttl:86400000});const name=cur.data&&cur.data[0]&&cur.data[0].name;
  return <div className="relative"><p className="text-xs font-bold uppercase tracking-wider text-mute mb-1.5">{label}{name?` · ${name}`:''}</p>
   <input value={q} onChange={e=>setQ(e.target.value)} placeholder={id?'Search to change player…':'Search a player…'} aria-label={label} className={`${sel} w-full`}/>
-  {on&&<div className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-xl border border-line bg-bg2 shadow-xl divide-y divide-line">{r.loading&&!r.data?<p className="p-3 text-xs text-mute">Searching…</p>:list.length?list.slice(0,10).map(p=><button key={p.id} onClick={()=>{onPick(p.id);setQ('')}} className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-white/5"><PhotoAvatar src={p.photo} name={p.name} s={28}/><span className="truncate font-semibold">{p.name}</span></button>):<p className="p-3 text-xs text-mute">No players found.</p>}</div>}</div>}
+  {on&&<div className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-xl border border-line bg-bg2 shadow-xl divide-y divide-line">{r.loading&&!r.data?<p className="p-3 text-xs text-mute flex items-center gap-2"><LogoLoader size={18} label="Searching"/>Searching…</p>:list.length?list.slice(0,10).map(p=><button key={p.id} onClick={()=>{onPick(p.id);setQ('')}} className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-white/5"><PhotoAvatar src={p.photo} name={p.name} s={28}/><span className="truncate font-semibold">{p.name}</span></button>):<p className="p-3 text-xs text-mute">No players found.</p>}</div>}</div>}
 
 function usePlayer(id){const p=useApi('player',{id},{enabled:!!id,ttl:86400000}),s=useApi('playerStats',{id},{enabled:!!id,ttl:86400000});
  return{p,s,prof:p.data&&p.data[0]?normPlayerProfile(p.data[0]):null,stats:s.data&&s.data[0]?normPlayerStats(s.data[0]):null}}

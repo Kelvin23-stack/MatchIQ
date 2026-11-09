@@ -23,6 +23,7 @@ import {MatchRow} from './LiveMatches'
 import {Async} from './LiveBits'
 import {setLeague} from './dataMode'
 import {Empty} from './PlayerBits'
+import {Loading} from './Loader'
 import {Board} from './Board'
 
 export const TABS=[['overview','Overview','grid'],['matches','Matches','ball'],['predictions','My Predictions','list'],['players','Player Intelligence','shirt'],['competition','Competition','trophy'],['community','Community','users'],['messages','Messages','comment'],['profile','Profile','user'],['settings','Settings','cog']];
@@ -39,7 +40,7 @@ function Overview(){
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"><Stat l="Total Points" v={points} ic="trophy"/><Stat l="Predictions" v={picks} ic="check"/><Stat l="Accuracy" v={76} s="%" ic="bolt"/><Stat l="Current Streak" v={5} ic="flame"/></div>
     <p className="text-[11px] text-mute -mt-3">Points, accuracy and streak are placeholders until Phase 2 (they are not calculated from real results yet).</p>
     <div><H t="Upcoming matches"/><Async s={up} banner={false}>{up.list.length?<div className="grid sm:grid-cols-2 gap-4">{up.list.map(m=><MatchRow key={m.id} m={m}/>)}</div>:<Empty title="No upcoming matches returned" body="The data provider has no scheduled matches for this competition."/>}</Async></div>
-    <div><H t="Competitions"/>{L.loading?<div className="h-28 rounded-2xl bg-card border border-line animate-pulse"/>:L.list.length?<div className="grid sm:grid-cols-3 gap-4">{L.list.map(c=><Comp key={c.id} c={c}/>)}</div>:<Empty title="No competitions available" body="Enable competitions with HIGHLIGHTLY_LEAGUES on the server."/>}</div>
+    <div><H t="Competitions"/>{L.loading?<Loading label="Loading competitions…" min="min-h-[7rem]" size={44}/>:L.list.length?<div className="grid sm:grid-cols-3 gap-4">{L.list.map(c=><Comp key={c.id} c={c}/>)}</div>:<Empty title="No competitions available" body="Enable competitions with HIGHLIGHTLY_LEAGUES on the server."/>}</div>
    </div>
    <div className="space-y-6">
     <div className="rounded-2xl border border-flame/25 bg-gradient-to-br from-flame/15 to-card p-5"><div className="flex items-center justify-between"><h3 className="font-bold">My Prediction Streak</h3><I n="flame" c="text-flame"/></div><p className="text-5xl font-extrabold mt-3 text-flame">5</p><p className="text-sm text-mute">correct in a row · best: 9</p><div className="flex gap-1.5 mt-4">{[1,1,1,1,1,0,0].map((x,i)=><div key={i} className={`flex-1 h-9 rounded-lg grid place-items-center ${x?'bg-flame text-ink':'bg-bg2 border border-line text-mute'}`}>{x?<I n="check" s={14}/>:i+1-4}</div>)}</div><p className="text-xs text-mute mt-3">Sample streak, shown until results tracking arrives.</p></div>

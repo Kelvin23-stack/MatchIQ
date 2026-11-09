@@ -14,6 +14,7 @@ import {Confirm} from './Confirm'
 import {useDataSettings,setSeason} from './dataMode'
 import {api} from './footballApi'
 import {errText} from './LiveBits'
+import {LogoLoader} from './Loader'
 
 const SECS=[['account','Account'],['appearance','Appearance'],['notifications','Notifications'],['privacy','Privacy'],['preferences','Preferences'],['data','Data source'],['actions','Account actions']];
 const Card=({id,title,sub,children})=><section id={'s-'+id} className="scroll-mt-24"><h2 className="text-lg font-extrabold">{title}</h2>{sub&&<p className="text-sm text-mute mt-0.5">{sub}</p>}<div className="mt-4 rounded-2xl bg-card border border-line p-5">{children}</div></section>;
@@ -30,7 +31,7 @@ function DataSource(){
   <label className="text-xs font-bold uppercase tracking-wider text-mute">Season (optional)</label>
   <div className="flex gap-2 mt-2"><input value={yr} onChange={e=>setYr(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="e.g. 2025 (blank = server default)" className="flex-1 min-w-0 rounded-xl bg-bg2 border border-line px-4 py-2.5 text-sm outline-none focus:border-white/40"/><Btn v="s" onClick={()=>setSeason(yr)}>Apply</Btn></div>
   <p className="text-[11px] text-mute mt-2">Free API plans only cover some seasons. If you see a plan error, try an earlier season here.</p>
-  <div className="mt-5 pt-5 border-t border-line"><Btn v="s" onClick={test} className={busy?'opacity-50 pointer-events-none':''}>{busy?'Testing…':'Test connection'}</Btn>
+  <div className="mt-5 pt-5 border-t border-line"><Btn v="s" onClick={test} className={busy?'opacity-50 pointer-events-none':''}>{busy?<><LogoLoader size={16} label="Testing connection"/>Testing…</>:'Test connection'}</Btn>
    {t&&<div className="mt-3 rounded-xl border border-line bg-bg2 p-3 text-xs space-y-1">{t.error?<p className="text-red-400">{errText(t.error)}</p>:<><p>Server key configured: <b>{t.cfg.configured?'yes':'no'}</b></p><p>Enabled competitions (ids): <b>{t.cfg.leagues.length?t.cfg.leagues.join(', '):'none. Set HIGHLIGHTLY_LEAGUES'}</b> · default season <b>{t.cfg.defaultSeason}</b></p>{t.status&&(t.status.error?<p className="text-red-400">{errText(t.status.error)}</p>:t.status.data&&<p>Plan: <b>{t.status.data.plan||'unknown'}</b>{t.status.data.requests&&t.status.data.requests.remaining!=null?<> · requests left today <b>{t.status.data.requests.remaining}</b>{t.status.data.requests.limit!=null?<> of {t.status.data.requests.limit}</>:null}</>:null}</p>)}{t.status&&t.status.data&&t.status.data.message&&<p className="text-amber-400">Plan notice: {t.status.data.message}</p>}<p className="text-mute">The key itself is stored on the server only and is never shown here.</p></>}</div>}</div></div>}
 export function Settings(){
  const {toast,nav,theme,setTheme}=useContext(Ctx);const {user,update,changePassword,logout,deleteAccount}=useAuth();const st=user.settings,p=user.profile;

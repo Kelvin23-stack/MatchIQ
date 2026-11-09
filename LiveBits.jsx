@@ -3,6 +3,7 @@ import {Ctx} from './context'
 import {I} from './Icon'
 import {Btn} from './ui'
 import {initials} from './intelHelpers'
+import {Loading} from './Loader'
 
 export const TeamLogo=({t,s=40})=>{const [bad,setBad]=useState(false);return t&&t.logo&&!bad?<img src={t.logo} alt={`${t.name} logo`} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBad(true)} className="object-contain shrink-0" style={{width:s,height:s}}/>:<span className="rounded-full grid place-items-center font-extrabold border border-line bg-bg2 text-mute shrink-0" style={{width:s,height:s,fontSize:s*.3}}>{initials((t&&t.name)||'?')}</span>};
 export const PhotoAvatar=({src,name,s=56})=>{const [bad,setBad]=useState(false);return src&&!bad?<img src={src} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBad(true)} className="rounded-full object-cover shrink-0 border border-line bg-bg2" style={{width:s,height:s}}/>:<span className="rounded-full grid place-items-center font-extrabold border border-line bg-bg2 text-mute shrink-0" style={{width:s,height:s,fontSize:s*.34}}>{initials(name||'?')}</span>};
@@ -23,7 +24,8 @@ export function DataBanner({s,label='Live data · '+PROVIDER}){
 
 export function ErrorBox({e,retry}){const {nav}=useContext(Ctx);return <div className="rounded-2xl border border-red-400/30 bg-red-500/5 p-6 text-center"><div className="w-11 h-11 mx-auto rounded-full bg-red-500/10 text-red-400 grid place-items-center"><I n="alert" s={20}/></div><p className="font-bold mt-3">Could not load live data</p><p className="text-sm text-mute mt-1 max-w-lg mx-auto">{errText(e)}</p>
  <div className="flex flex-wrap justify-center gap-3 mt-4">{retry&&<Btn v="s" onClick={retry}>Retry</Btn>}<Btn v="s" onClick={()=>nav('settings')}>Data settings</Btn></div></div>}
-export const Skeleton=({n=3,h='h-24'})=><div className="space-y-3 animate-pulse">{Array.from({length:n}).map((_,i)=><div key={i} className={`${h} rounded-2xl bg-card border border-line`}/>)}</div>;
+// Loading placeholder for live data: the animated MatchIQ logo (props kept so existing callers still work).
+export const Skeleton=({label='Loading…'})=><Loading label={label}/>;
 // Wraps a useApi() result: skeleton while loading, error box on failure, banner + children otherwise.
 export function Async({s,children,banner=true}){
  if(s.loading&&!s.data)return <Skeleton/>;

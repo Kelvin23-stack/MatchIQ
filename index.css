@@ -16,6 +16,10 @@ body{background:rgb(var(--bg));color:rgb(var(--fg));transition:background .25s,c
 
 .no-scrollbar{scrollbar-width:none}.no-scrollbar::-webkit-scrollbar{display:none}
 
+/* Loading logo: one full turn clockwise, then back anticlockwise, each half eased in and out so the direction change is smooth. */
+@keyframes logo-swing{0%{transform:rotate(0deg)}50%{transform:rotate(360deg)}100%{transform:rotate(0deg)}}
+.logo-swing{animation:logo-swing 2.4s ease-in-out infinite;transform-origin:50% 50%;will-change:transform}
+
 @keyframes flick{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.1) rotate(2deg)}}
 @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @keyframes shine{0%{background-position:-120% 0}100%{background-position:220% 0}}
