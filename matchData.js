@@ -1,0 +1,33 @@
+import {LIVE_EVENTS} from './socialData'
+// DEMO MATCH DATA. Sample lineups and statistics, not official information.
+const L=a=>a.map(([id,name,sn,num,pos])=>({id,name,sn,num,pos}));
+const rows=(names,data)=>Object.fromEntries(names.map((n,i)=>[n,data[i]]));
+// columns: min, rating, goals, assists, shots, shots on target, tackles, yellow, red
+const R14={'Robert Sánchez':[90,6.8,0,0,0,0,0,0,0],'Reece James':[90,7.0,0,0,0,0,2,0,0],'Trevoh Chalobah':[90,6.7,0,0,0,0,2,1,0],'Levi Colwill':[90,6.9,0,0,0,0,1,0,0],'Marc Cucurella':[90,6.8,0,0,0,0,2,0,0],'Moisés Caicedo':[90,7.0,0,0,1,0,3,0,0],'Enzo Fernández':[90,7.1,0,0,1,0,2,0,0],'Pedro Neto':[68,6.7,0,0,2,0,1,0,0],'Cole Palmer':[90,7.9,1,0,4,2,1,0,0],'Estêvão':[90,7.4,0,1,3,1,0,0,0],'João Pedro':[90,6.8,0,0,3,1,0,0,0],'Jamie Gittens':[22,6.5,0,0,0,0,0,0,0],
+'David Raya':[90,7.2,0,0,0,0,0,0,0],'Riccardo Calafiori':[90,7.0,0,0,0,0,2,0,0],'Gabriel Magalhães':[90,7.1,0,0,0,0,3,0,0],'William Saliba':[90,7.2,0,0,0,0,2,0,0],'Ben White':[90,6.9,0,0,0,0,2,0,0],'Declan Rice':[90,7.7,0,1,1,0,3,0,0],'Martín Zubimendi':[90,7.0,0,0,0,0,3,1,0],'Martin Ødegaard':[90,7.8,0,1,1,0,1,0,0],'Gabriel Martinelli':[79,7.9,1,0,3,2,1,0,0],'Kai Havertz':[90,7.0,0,0,2,1,0,0,0],'Bukayo Saka':[85,8.3,1,0,4,2,1,0,0],'Leandro Trossard':[11,6.8,0,0,0,0,0,0,0],'Jurriën Timber':[5,6.6,0,0,0,0,1,0,0]};
+const R7={'Altay Bayındır':[63,6.9,0,0,0,0,0,0,0],'Leny Yoro':[63,6.8,0,0,0,0,1,0,0],'Lisandro Martínez':[63,7.0,0,0,0,0,2,0,0],'Matthijs de Ligt':[63,6.9,0,0,0,0,1,0,0],'Patrick Dorgu':[63,6.7,0,0,0,0,1,0,0],'Casemiro':[55,6.6,0,0,0,0,2,0,0],'Bruno Fernandes':[63,7.4,0,1,2,0,1,0,0],'Manuel Ugarte':[63,6.8,0,0,0,0,2,0,0],'Diogo Dalot':[55,6.6,0,0,0,0,1,0,0],'Matheus Cunha':[63,6.9,0,0,2,1,0,0,0],'Bryan Mbeumo':[63,7.6,1,0,3,2,0,0,0],'Kobbie Mainoo':[8,6.5,0,0,0,0,0,0,0],'Amad Diallo':[8,6.5,0,0,0,0,0,0,0],
+'Guglielmo Vicario':[63,6.9,0,0,0,0,0,0,0],'Destiny Udogie':[63,6.7,0,0,0,0,1,0,0],'Micky van de Ven':[63,6.8,0,0,0,0,2,0,0],'Cristian Romero':[63,6.9,0,0,0,0,1,0,0],'Pedro Porro':[63,6.8,0,0,0,0,1,0,0],'Wilson Odobert':[63,6.7,0,0,0,0,0,0,0],'Rodrigo Bentancur':[63,6.8,0,0,0,0,2,1,0],'James Maddison':[63,7.3,0,1,2,1,0,0,0],'Mohammed Kudus':[63,6.7,0,0,0,0,1,0,0],'Dominic Solanke':[63,7.4,1,0,3,1,0,0,0],'Richarlison':[63,6.6,0,0,1,0,0,0,0]};
+export const MATCH_DATA={
+ 14:{H:{formation:'4-2-3-1',manager:null,captain:'p_james',
+   xi:L([['p_sanchez','Robert Sánchez','Sánchez',1,'GK'],[null,'Marc Cucurella','Cucurella',3,'DF'],[null,'Levi Colwill','Colwill',26,'DF'],[null,'Trevoh Chalobah','Chalobah',23,'DF'],['p_james','Reece James','James',24,'DF'],[null,'Moisés Caicedo','Caicedo',25,'MF'],['p_enzo','Enzo Fernández','Enzo',8,'MF'],['p_neto','Pedro Neto','Neto',7,'FW'],['p_palmer','Cole Palmer','Palmer',10,'MF'],['p_estevao','Estêvão','Estêvão',41,'FW'],[null,'João Pedro','João Pedro',20,'FW']]),
+   bench:L([[null,'Filip Jørgensen','Jørgensen',12,'GK'],[null,'Malo Gusto','Gusto',27,'DF'],[null,'Andrey Santos','Santos',17,'MF'],[null,'Jamie Gittens','Gittens',11,'FW'],[null,'Liam Delap','Delap',9,'FW']])},
+  A:{formation:'4-3-3',manager:'Mikel Arteta',captain:'p_odegaard',
+   xi:L([['p_raya','David Raya','Raya',22,'GK'],[null,'Riccardo Calafiori','Calafiori',33,'DF'],[null,'Gabriel Magalhães','Gabriel',6,'DF'],['p_saliba','William Saliba','Saliba',2,'DF'],[null,'Ben White','White',4,'DF'],['p_rice','Declan Rice','Rice',41,'MF'],[null,'Martín Zubimendi','Zubimendi',36,'MF'],['p_odegaard','Martin Ødegaard','Ødegaard',8,'MF'],['p_martinelli','Gabriel Martinelli','Martinelli',11,'FW'],[null,'Kai Havertz','Havertz',29,'FW'],['p_saka','Bukayo Saka','Saka',7,'FW']]),
+   bench:L([[null,'Kepa Arrizabalaga','Kepa',13,'GK'],[null,'Jurriën Timber','Timber',12,'DF'],[null,'Mikel Merino','Merino',23,'MF'],[null,'Leandro Trossard','Trossard',19,'FW'],[null,'Gabriel Jesus','Jesus',9,'FW']])},
+  stats:{poss:[55,45],shots:[14,11],sot:[4,5],corners:[6,4],fouls:[11,9],pass:[86,83]},
+  events:[[23,'goal','a','Goal: Saka (assist: Ødegaard)'],[41,'goal','h','Goal: Palmer (assist: Estêvão)'],[57,'yellow','h','Yellow card: Chalobah'],[66,'yellow','a','Yellow card: Zubimendi'],[68,'sub','h','Gittens on for Neto'],[78,'goal','a','Goal: Martinelli (assist: Rice)'],[79,'sub','a','Trossard on for Martinelli'],[85,'sub','a','Timber on for Saka']],
+  ps:R14,
+  h2h:[['2026-01-04','ARS','CHE',2,0],['2025-09-27','CHE','ARS',1,1],['2025-05-04','CHE','ARS',1,0],['2024-11-10','ARS','CHE',1,1],['2024-04-23','CHE','ARS',2,2]]},
+ 7:{H:{formation:'3-5-2',manager:null,captain:'p_bruno',
+   xi:L([['p_bayindir','Altay Bayındır','Bayındır',1,'GK'],[null,'Leny Yoro','Yoro',15,'DF'],['p_lisandro','Lisandro Martínez','Martínez',6,'DF'],[null,'Matthijs de Ligt','De Ligt',4,'DF'],[null,'Patrick Dorgu','Dorgu',13,'MF'],[null,'Casemiro','Casemiro',18,'MF'],['p_bruno','Bruno Fernandes','Bruno',8,'MF'],[null,'Manuel Ugarte','Ugarte',25,'MF'],[null,'Diogo Dalot','Dalot',20,'DF'],['p_cunha','Matheus Cunha','Cunha',10,'FW'],['p_mbeumo','Bryan Mbeumo','Mbeumo',19,'FW']]),
+   bench:L([[null,'Senne Lammens','Lammens',31,'GK'],[null,'Harry Maguire','Maguire',5,'DF'],[null,'Kobbie Mainoo','Mainoo',37,'MF'],[null,'Amad Diallo','Amad',16,'FW'],[null,'Benjamin Šeško','Šeško',30,'FW']])},
+  A:{formation:'4-4-2',manager:null,captain:'p_romero',
+   xi:L([['p_vicario','Guglielmo Vicario','Vicario',1,'GK'],[null,'Destiny Udogie','Udogie',13,'DF'],['p_vandeven','Micky van de Ven','Van de Ven',37,'DF'],['p_romero','Cristian Romero','Romero',17,'DF'],['p_porro','Pedro Porro','Porro',23,'DF'],[null,'Wilson Odobert','Odobert',28,'MF'],[null,'Rodrigo Bentancur','Bentancur',30,'MF'],['p_maddison','James Maddison','Maddison',10,'MF'],[null,'Mohammed Kudus','Kudus',20,'MF'],['p_solanke','Dominic Solanke','Solanke',19,'FW'],[null,'Richarlison','Richarlison',9,'FW']]),
+   bench:L([[null,'Antonín Kinský','Kinský',31,'GK'],[null,'Radu Drăgușin','Drăgușin',3,'DF'],[null,'João Palhinha','Palhinha',6,'MF'],[null,'Brennan Johnson','Johnson',22,'FW'],[null,'Mathys Tel','Tel',11,'FW']])},
+  stats:{poss:[48,52],shots:[7,6],sot:[3,2],corners:[3,2],fouls:[8,9],pass:[80,82]},
+  events:LIVE_EVENTS[7],ps:R7,
+  h2h:[['2026-02-14','TOT','MUN',1,2],['2025-09-28','MUN','TOT',2,2],['2025-04-27','TOT','MUN',1,0],['2024-12-19','MUN','TOT',0,3],['2024-09-29','TOT','MUN',0,3]]},
+ 1:{h2h:[['2026-03-08','MCI','ARS',2,1],['2025-09-21','ARS','MCI',1,1],['2025-03-02','MCI','ARS',1,1],['2024-09-22','ARS','MCI',2,2],['2024-02-25','MCI','ARS',0,0]]}};
+// Fixtures that have a sample lineup (used to link player profiles back to matches)
+export const LINEUP_MATCHES=Object.keys(MATCH_DATA).filter(k=>MATCH_DATA[k].H).map(Number);
+export const FORMATIONS={'4-3-3':[1,4,3,3],'4-2-3-1':[1,4,2,3,1],'4-4-2':[1,4,4,2],'3-5-2':[1,3,5,2]};
