@@ -3,7 +3,7 @@
 // NOT in this file (they must stay separate): api/football.js (Vercel serverless function), package.json, index.html, index.css, vite.config.js, tailwind.config.js, postcss.config.js, the two stadium images.
 
 import React52 from "react";
-import React51, { useState as useState42, useEffect as useEffect22 } from "react";
+import React51, { useState as useState42, useEffect as useEffect22, useMemo as useMemo7 } from "react";
 import { createContext } from "react";
 import { useState, useEffect } from "react";
 import { useState as useState4, useEffect as useEffect4, useMemo } from "react";
@@ -328,6 +328,7 @@ function normFixture(r) {
     leagueId: l.id ?? null,
     leagueName: l.name || "",
     leagueLogo: img(l.logo),
+    country: r.country && r.country.name || null,
     season: l.season ?? null,
     round: r.round || "",
     timestamp: ts(r.date),
@@ -469,6 +470,7 @@ function toMatch(fx) {
     lg: fx.leagueName,
     lgId: fx.leagueId,
     lgLogo: fx.leagueLogo,
+    country: fx.country,
     round: fx.round,
     kind: k,
     status: fx.status,
@@ -482,7 +484,7 @@ function toMatch(fx) {
     city: fx.city
   };
 }
-var snap = (m) => ({ id: m.id, h: m.h, a: m.a, lg: m.lg, lgLogo: m.lgLogo, kind: m.kind, status: m.status, st: m.st, sc: m.sc, hasScore: m.hasScore, min: m.min, ts: m.ts, t: m.t, venue: m.venue, teams: { [m.h]: regOf(m.h), [m.a]: regOf(m.a) } });
+var snap = (m) => ({ id: m.id, h: m.h, a: m.a, lg: m.lg, lgId: m.lgId, lgLogo: m.lgLogo, country: m.country, kind: m.kind, status: m.status, st: m.st, sc: m.sc, hasScore: m.hasScore, min: m.min, ts: m.ts, t: m.t, venue: m.venue, teams: { [m.h]: regOf(m.h), [m.a]: regOf(m.a) } });
 var regOf = (c) => ({ name: (TEAM_REG[c] || {}).name, logo: (TEAM_REG[c] || {}).logo });
 var rehydrate = (m) => {
   if (m && m.teams) Object.entries(m.teams).forEach(([c, t]) => {
@@ -496,15 +498,6 @@ var dayStr = (n) => {
   d.setDate(d.getDate() + n);
   return iso(d);
 };
-var useLeagueParam = () => {
-  const { league } = useDataSettings();
-  return league ? { league } : {};
-};
-function useMatches(params, opts) {
-  const r = useApi("fixtures", params, opts);
-  const list = useMemo(() => normFixtures(r.data).map(toMatch), [r.data]);
-  return { ...r, list };
-}
 function useLeagueList() {
   const cfg = useApi("config", {}, { ttl: 6e5 });
   const ids = cfg.data && cfg.data.leagues || [];
@@ -538,19 +531,26 @@ var verdict = (m, p, k) => {
   if (k === "Both Teams to Score") return p.btts === (h > 0 && a > 0 ? "Y" : "N");
   return null;
 };
+function useDefaultLeague() {
+  const cfg = useApi("config", {}, { ttl: 6e5 });
+  return { ready: !!cfg.data || !!cfg.error, first: cfg.data && cfg.data.leagues && cfg.data.leagues[0] || "" };
+}
 var sortList = (l) => [...l].sort((a, b) => (a.ts || 0) - (b.ts || 0));
-function useMatchDays(dates, { ttl = 3e5, enabled = true, poll, live: liveFlag } = {}) {
+function useMatchDays(dates, { ttl = 3e5, enabled = true, poll, live: liveFlag, leagues } = {}) {
   const { league, season } = useDataSettings();
-  const key = dates.join(",") + "|" + league + "|" + season + "|" + enabled;
+  const { ready, first } = useDefaultLeague();
+  const ls = leagues && leagues.length ? leagues : [league || first || ""];
+  const key = dates.join(",") + "|" + ls.join(",") + "|" + season + "|" + enabled + "|" + ready;
   const [s, setS] = useState4({ loading: enabled, data: null, error: null, stale: false, updatedAt: null, fromCache: false, meta: null, paging: null }), [n, setN] = useState4(0);
   useEffect4(() => {
     if (!enabled) {
       setS((x) => ({ ...x, loading: false }));
       return;
     }
+    if (!ready) return;
     let live = true;
     setS((x) => ({ ...x, loading: true, error: null }));
-    Promise.allSettled(dates.map((d) => api("fixtures", { date: d, ...league ? { league } : {}, ...liveFlag ? { live: 1 } : {} }, { ttl, force: n > 0 }))).then((rs) => {
+    Promise.allSettled(dates.flatMap((d) => ls.map((l) => api("fixtures", { date: d, ...l ? { league: l } : {}, ...liveFlag ? { live: 1 } : {} }, { ttl, force: n > 0 })))).then((rs) => {
       if (!live) return;
       const ok = rs.filter((r) => r.status === "fulfilled").map((r) => r.value);
       if (!ok.length) {
@@ -576,13 +576,16 @@ function useMatchDays(dates, { ttl = 3e5, enabled = true, poll, live: liveFlag }
 }
 function useNextMatches(count, { maxDays = 7, enabled = true } = {}) {
   const { league, season } = useDataSettings();
-  const key = count + "|" + league + "|" + season + "|" + enabled;
+  const { ready, first } = useDefaultLeague();
+  const lg = league || first || "";
+  const key = count + "|" + lg + "|" + season + "|" + enabled + "|" + ready;
   const [s, setS] = useState4({ loading: enabled, data: null, error: null, stale: false, updatedAt: null, fromCache: false, meta: null, list: [] }), [n, setN] = useState4(0);
   useEffect4(() => {
     if (!enabled) {
       setS((x) => ({ ...x, loading: false }));
       return;
     }
+    if (!ready) return;
     let live = true;
     setS((x) => ({ ...x, loading: true, error: null }));
     (async () => {
@@ -590,7 +593,7 @@ function useNextMatches(count, { maxDays = 7, enabled = true } = {}) {
       for (let i = 0; i < maxDays && out.length < count; i++) {
         let r;
         try {
-          r = await api("fixtures", { date: dayStr(i), ...league ? { league } : {} }, { ttl: 36e5, force: n > 0 && i === 0 });
+          r = await api("fixtures", { date: dayStr(i), ...lg ? { league: lg } : {} }, { ttl: 36e5, force: n > 0 && i === 0 });
         } catch (e) {
           err = e;
           break;
@@ -610,6 +613,23 @@ function useNextMatches(count, { maxDays = 7, enabled = true } = {}) {
     };
   }, [key, n]);
   return { ...s, reload: () => setN((x) => x + 1) };
+}
+function useRefreshed(list) {
+  const [fresh, setFresh] = useState4({});
+  const key = list.map((m) => m.id).join(",");
+  useEffect4(() => {
+    let live = true;
+    const need = list.filter((m) => m.st !== "ft" && m.st !== "off" && m.ts && m.ts * 1e3 < Date.now()).slice(0, 10);
+    need.forEach((m) => api("fixture", { id: m.id }, { ttl: 3e5 }).then((r) => {
+      const fx = r.data && r.data[0] && normFixture(r.data[0]);
+      if (live && fx) setFresh((f) => ({ ...f, [m.id]: { ...toMatch(fx), teams: m.teams } }));
+    }).catch(() => {
+    }));
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  return list.map((m) => fresh[m.id] || m);
 }
 
 // AuthContext.jsx
@@ -1324,23 +1344,47 @@ var Crumbs = ({ items }) => {
 var Empty = ({ icon = "empty", title, body, children }) => <div className="rounded-2xl border border-dashed border-line p-10 text-center text-mute"><I n={icon} s={28} c="mx-auto mb-3" /><p className="font-bold text-white">{title}</p>{body && <p className="text-sm mt-1 max-w-md mx-auto">{body}</p>}<div className="mt-4">{children}</div></div>;
 
 // LiveMatches.jsx
-var VIEWS = ["Live", "Yesterday", "Today", "Upcoming", "Finished", "Table"];
+var VIEWS = ["Live", "Favourites", "Yesterday", "Today", "Upcoming", "Finished", "Table"];
 var EMPTY = { Live: "No matches are live right now.", Yesterday: "No matches were played yesterday.", Today: "No matches scheduled for today.", Upcoming: "No upcoming matches found.", Finished: "No finished matches in the last 7 days." };
+var hhmm = (ts2) => ts2 ? new Date(ts2 * 1e3).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "TBC";
+var SHORT2 = { "Postponed": "PST", "Cancelled": "CAN", "Suspended": "SUS", "Interrupted": "INT", "Abandoned": "ABD", "Awarded": "AWD", "To be announced": "TBC", "Half time": "HT", "Break time": "BRK" };
+function Clock2({ m }) {
+  if (m.st === "upcoming") return <span className="text-sm font-bold tabular-nums">{m.status.short === "TBD" ? "TBC" : hhmm(m.ts)}</span>;
+  if (m.kind === "live") return <span className="flex flex-col items-center gap-1 text-red-400 text-sm font-extrabold tabular-nums"><span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />{m.min != null ? m.min + "'" : "LIVE"}</span>;
+  if (m.kind === "break") return <span className="text-sm font-extrabold text-amber-400">{SHORT2[m.status.long] || "HT"}</span>;
+  if (m.st === "ft") return <span className="text-xs font-bold text-mute">{m.status.long === "Finished after penalties" ? "PEN" : m.status.long === "Finished after extra time" ? "AET" : "FT"}</span>;
+  return <span className="text-[11px] font-bold text-amber-400">{SHORT2[m.status.long] || "–"}</span>;
+}
+function FavStar({ m, className = "" }) {
+  const { favs, toggleFav } = useContext7(Ctx);
+  const on = !!favs[m.id], label = on ? "Remove from favourites" : "Add to favourites";
+  return <button type="button" aria-pressed={on} aria-label={label} title={label} onClick={(e) => {
+    e.stopPropagation();
+    toggleFav(m);
+  }} className={`shrink-0 w-10 h-10 rounded-full grid place-items-center transition active:scale-90 ${on ? "text-gold" : "text-mute hover:text-white"} ${className}`}><I n="star" s={22} fill={on} /></button>;
+}
 function MatchRow({ m }) {
   const { nav, store, openPick } = useContext7(Ctx);
-  const st = m.status, show = st.kind !== "upcoming" && st.kind !== "off", p = store[m.id], lines = p ? marketLines(p, m) : [];
-  const go = () => nav(`lmatch/${m.id}/overview`);
-  return <div role="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === "Enter" && go()} aria-label="Open match details" className="cursor-pointer w-full text-left rounded-2xl border border-line bg-card p-4 transition hover:border-white/30 hover:-translate-y-0.5">
-  <div className="flex items-center justify-between gap-2 text-[11px] text-mute"><span className="truncate flex items-center gap-1.5">{m.lgLogo && <img src={m.lgLogo} alt="" referrerPolicy="no-referrer" className="w-4 h-4 object-contain" />}{m.lg}{m.round ? ` · ${m.round.replace("Regular Season - ", "Matchday ")}` : ""}</span><LiveStatus st={st} /></div>
-  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-3"><div className="flex items-center gap-2.5 min-w-0"><TeamLogo t={{ name: teamName(m.h), logo: teamLogo(m.h) }} s={36} /><span className="text-sm font-bold truncate">{teamName(m.h)}</span></div>
-   <div className="text-center min-w-[64px]">{show ? <span className="text-xl font-extrabold tabular-nums">{m.hasScore ? m.sc[0] : "–"}<span className="text-mute mx-1">–</span>{m.hasScore ? m.sc[1] : "–"}</span> : <span className="text-xs font-bold text-mute">{m.ts ? new Date(m.ts * 1e3).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "TBC"}</span>}</div>
-   <div className="flex items-center gap-2.5 min-w-0 justify-end"><span className="text-sm font-bold truncate text-right">{teamName(m.a)}</span><TeamLogo t={{ name: teamName(m.a), logo: teamLogo(m.a) }} s={36} /></div></div>
-  {m.st === "upcoming" && <div className="mt-3 flex items-center justify-between gap-2">{p ? <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400"><I n="check" s={13} />{lines.length} market{lines.length > 1 ? "s" : ""} predicted</span> : <span className="text-[11px] text-mute">Predictions close at kickoff</span>}
-   <Btn onClick={(e) => {
+  const p = store[m.id], n = p ? marketLines(p, m).length : 0, show = (m.st === "live" || m.st === "ft") && m.hasScore, go = () => nav(`lmatch/${m.id}/overview`);
+  const win = m.st === "ft" && m.hasScore ? m.sc[0] > m.sc[1] ? 0 : m.sc[0] < m.sc[1] ? 1 : -1 : -1;
+  const team = (code, i) => <div className="flex items-center gap-2.5 min-w-0"><TeamLogo t={{ name: teamName(code), logo: teamLogo(code) }} s={24} /><span className={`text-[15px] truncate ${win === i ? "font-extrabold" : win >= 0 ? "font-semibold text-mute" : "font-semibold"}`}>{teamName(code)}</span></div>;
+  return <div role="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === "Enter" && go()} aria-label={`${teamName(m.h)} vs ${teamName(m.a)}`} className="flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-card border border-line pl-3 pr-1.5 sm:pl-4 sm:pr-2 py-2.5 cursor-pointer transition hover:border-white/25">
+  <div className="w-11 sm:w-12 shrink-0 text-center"><Clock2 m={m} /></div><span className="w-px self-stretch bg-line" aria-hidden="true" />
+  <div className="flex-1 min-w-0 space-y-2">{team(m.h, 0)}{team(m.a, 1)}</div>
+  {show && <div className="shrink-0 text-right text-[15px] font-extrabold tabular-nums space-y-2 pr-1" aria-label={`Score ${m.sc[0]} to ${m.sc[1]}`}><div className={win === 1 ? "text-mute" : ""}>{m.sc[0]}</div><div className={win === 0 ? "text-mute" : ""}>{m.sc[1]}</div></div>}
+  {m.st === "upcoming" && <button type="button" onClick={(e) => {
     e.stopPropagation();
     openPick(m);
-  }} className="!py-1.5 !px-3.5 text-xs">{p ? "Edit prediction" : "Predict"}</Btn></div>}
-  {m.st !== "upcoming" && p && <p className="mt-3 text-[11px] text-mute flex items-center gap-1.5"><I n="lock" s={12} />Your {lines.length} pick{lines.length > 1 ? "s" : ""} · closed</p>}</div>;
+  }} aria-label={n ? "Edit prediction" : "Predict this match"} title={n ? "Edit prediction" : "Predict this match"} className={`shrink-0 h-9 min-w-[2.25rem] rounded-full inline-flex items-center justify-center gap-1.5 px-2.5 text-xs font-bold transition active:scale-95 ${n ? "bg-emerald-400/15 text-emerald-400 border border-emerald-400/30" : "bg-lime text-ink hover:brightness-110"}`}><I n={n ? "check" : "target"} s={16} /><span className="hidden sm:inline">{n ? "Edit" : "Predict"}</span></button>}
+  <FavStar m={m} /></div>;
+}
+function Group({ g, open, onToggle, children }) {
+  const id = "grp-" + String(g.id).replace(/\W/g, "_");
+  return <section className="mb-4"><button type="button" onClick={onToggle} aria-expanded={open} aria-controls={id} className="w-full flex items-center gap-3 px-1 py-2.5 text-left rounded-2xl">
+   <span className="w-10 h-10 rounded-full p-[2px] shrink-0" style={{ background: "conic-gradient(from 200deg,#B388FF,#5AA9FF,#34D399,#B388FF)" }}><span className="w-full h-full rounded-full bg-bg2 grid place-items-center overflow-hidden">{g.logo ? <img src={g.logo} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-6 h-6 object-contain" /> : <I n="trophy" s={16} />}</span></span>
+   <span className="flex-1 min-w-0"><span className="block font-extrabold text-base truncate">{g.name}</span><span className="block text-xs text-mute truncate">{[g.country, `${g.items.length} match${g.items.length === 1 ? "" : "es"}`].filter(Boolean).join(" · ")}</span></span>
+   <span className="w-10 h-10 grid place-items-center text-mute shrink-0"><I n={open ? "up" : "down"} s={22} /></span></button>
+  <div id={id} style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", visibility: open ? "visible" : "hidden", transition: `grid-template-rows .3s ease, visibility 0s linear ${open ? "0s" : ".3s"}` }}><div className="overflow-hidden"><div className="space-y-2 pb-1">{children}</div></div></div></section>;
 }
 function Table() {
   const lp = useDataSettings().league;
@@ -1352,52 +1396,78 @@ function StandingsView({ groups }) {
   return <>{groups && groups.some((g) => g.rows.length) ? <div className="space-y-5">{groups.filter((g) => g.rows.length).map((g, gi) => <div key={gi}>{groups.length > 1 && g.name && <p className="text-xs font-bold uppercase tracking-wider text-mute mb-2">{g.name}</p>}<div className="rounded-2xl border border-line bg-card overflow-x-auto"><div className="min-w-[520px]"><Head2 />
   <div className="divide-y divide-line">{g.rows.map((t) => <div key={t.teamId} className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem_3rem_3rem] gap-2 px-4 py-2.5 items-center text-sm"><span className="text-mute tabular-nums">{t.rank}</span><span className="flex items-center gap-2 min-w-0"><TeamLogo t={t} s={22} /><span className="truncate font-semibold">{t.name}</span></span><span className="tabular-nums">{t.played ?? "–"}</span><span className="tabular-nums">{t.win ?? "–"}</span><span className="tabular-nums">{t.draw ?? "–"}</span><span className="tabular-nums">{t.lose ?? "–"}</span><span className="tabular-nums">{t.gf ?? "–"}</span><span className="tabular-nums">{t.ga ?? "–"}</span><span className="tabular-nums">{t.diff ?? "–"}</span><span className="font-extrabold tabular-nums">{t.points ?? "–"}</span></div>)}</div></div></div></div>)}</div> : <Empty title="No standings returned" body="The provider has no table for this competition and season. You can change the season in Settings." />}</>;
 }
-function CompetitionChips() {
+function CompetitionChips({ all, onAll }) {
   const { league } = useDataSettings();
   const L3 = useLeagueList();
   if (L3.loading || !L3.list.length) return null;
-  const cur = league || String(L3.list[0].id);
-  return <div role="tablist" aria-label="Competition" className="flex gap-2 overflow-x-auto no-scrollbar mb-4">{L3.list.map((l) => {
+  const cur = all ? "all" : league || String(L3.list[0].id), chip = (on) => `whitespace-nowrap inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition ${on ? "bg-lime text-ink border-lime" : "border-line text-mute hover:text-white"}`;
+  return <div role="tablist" aria-label="Competition" className="flex gap-2 overflow-x-auto no-scrollbar mb-4">{onAll && L3.list.length > 1 && <button role="tab" aria-selected={cur === "all"} onClick={() => onAll(true)} className={chip(cur === "all")}>All</button>}{L3.list.map((l) => {
     const on = String(l.id) === cur;
-    return <button key={l.id} role="tab" aria-selected={on} onClick={() => setLeague(l.id)} className={`whitespace-nowrap inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition ${on ? "bg-lime text-ink border-lime" : "border-line text-mute hover:text-white"}`}>{l.logo && <img src={l.logo} alt="" referrerPolicy="no-referrer" className="w-4 h-4 object-contain" />}{l.name}</button>;
+    return <button key={l.id} role="tab" aria-selected={on} onClick={() => {
+      setLeague(l.id);
+      onAll && onAll(false);
+    }} className={chip(on)}>{l.logo && <img src={l.logo} alt="" referrerPolicy="no-referrer" className="w-4 h-4 object-contain" />}{l.name}</button>;
   })}</div>;
 }
 var FILTER = { Live: (m) => m.st === "live", Upcoming: (m) => m.st === "upcoming", Finished: (m) => m.st === "ft" };
+function build(list, order) {
+  const days = [];
+  list.forEach((m) => {
+    const dk = m.ts ? iso(new Date(m.ts * 1e3)) : "tbc";
+    let d = days.find((x) => x.key === dk);
+    if (!d) {
+      d = { key: dk, label: m.ts ? new Date(m.ts * 1e3).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }) : "Date to be confirmed", groups: [] };
+      days.push(d);
+    }
+    const gid = String(m.lgId ?? m.lg);
+    let g = d.groups.find((x) => x.id === gid);
+    if (!g) {
+      g = { id: gid, name: m.lg || "Competition", logo: m.lgLogo, country: m.country, items: [] };
+      d.groups.push(g);
+    }
+    g.items.push(m);
+  });
+  days.forEach((d) => d.groups.sort((a, b) => order(a.id) - order(b.id)));
+  return days;
+}
 function LiveMatches() {
-  const [view, setView] = useState12("Today"), [date, setDate] = useState12(""), [more, setMore] = useState12(3);
+  const { favs } = useContext7(Ctx);
+  const [view, setView] = useState12("Today"), [date, setDate] = useState12(""), [more, setMore] = useState12(3), [all, setAll] = useState12(false), [collapsed, setCollapsed] = useStored("matchiq.collapsedGroups", []);
   const { league } = useDataSettings();
   const cfg = useApi("config", {}, { ttl: 6e5 });
+  const ids = cfg.data && cfg.data.leagues || [];
   const shift = (n) => {
     const d = date ? /* @__PURE__ */ new Date(date + "T12:00:00") : /* @__PURE__ */ new Date();
     d.setDate(d.getDate() + n);
     setDate(iso(d));
   };
-  const table = view === "Table" && !date, liveView = view === "Live" && !date, range = !date && (view === "Upcoming" || view === "Finished");
+  const table = view === "Table" && !date, fav = view === "Favourites" && !date, liveView = view === "Live" && !date, range = !date && (view === "Upcoming" || view === "Finished"), allMode = all && !table && !fav && ids.length > 1;
   const dates = date ? [date] : view === "Yesterday" ? [dayStr(-1)] : view === "Today" || liveView ? [dayStr(0)] : view === "Upcoming" ? Array.from({ length: more }, (_, i) => dayStr(i + 1)) : view === "Finished" ? Array.from({ length: more }, (_, i) => dayStr(-i)) : [];
-  const r = useMatchDays(dates, { enabled: !table, live: liveView, ttl: view === "Upcoming" && !date ? 36e5 : 3e5, poll: liveView ? 6e4 : void 0 });
-  let list = r.list;
+  const r = useMatchDays(dates, { enabled: !table && !fav, leagues: allMode ? ids : void 0, live: liveView, ttl: view === "Upcoming" && !date ? 36e5 : 3e5, poll: liveView ? allMode ? 12e4 : 6e4 : void 0 });
+  const favs0 = Object.values(favs).map((m) => rehydrate({ ...m })).sort((a, b) => (a.ts || 0) - (b.ts || 0)), favList = useRefreshed(favs0);
+  let list = fav ? favList : r.list;
   if (!date && FILTER[view]) list = list.filter(FILTER[view]);
   if (view === "Finished" && !date) list = [...list].reverse();
-  const groups = [];
-  list.forEach((m) => {
-    const k = m.ts ? new Date(m.ts * 1e3).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" }) : "Date to be confirmed";
-    const g = groups.find((x) => x.k === k);
-    g ? g.items.push(m) : groups.push({ k, items: [m] });
-  });
+  const order = (id) => {
+    const i = ids.indexOf(String(id));
+    return i < 0 ? 99 : i;
+  }, days = build(list, order);
+  const toggle = (k) => setCollapsed((c) => c.includes(k) ? c.filter((x) => x !== k) : [...c, k]);
+  const body = <>{days.map((d) => <div key={d.key}>{days.length > 1 && <p className="text-xs font-bold uppercase tracking-wider text-mute mb-1 mt-6 first:mt-0">{d.label}</p>}{d.groups.map((g) => <Group key={d.key + g.id} g={g} open={!collapsed.includes(g.id)} onToggle={() => toggle(g.id)}>{g.items.map((m) => <MatchRow key={m.id} m={m} />)}</Group>)}</div>)}</>;
   const noLeagues = cfg.data && cfg.data.configured !== false && cfg.data.leagues && !cfg.data.leagues.length;
   return <div>
   {cfg.data && cfg.data.configured === false && <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm mb-4">The server has no API key yet, so football data cannot load. See SETUP.md.</div>}
   {noLeagues && <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm mb-4">{cfg.data.leaguesRejected && cfg.data.leaguesRejected.length ? `HIGHLIGHTLY_LEAGUES contains values that are not numeric ids: ${cfg.data.leaguesRejected.join(", ")}. Use the numeric league ids, separated by commas.` : "No competitions are enabled yet. Set HIGHLIGHTLY_LEAGUES on the server and restart it (see SETUP.md)."}</div>}
-  <CompetitionChips />
+  {!fav && <CompetitionChips all={allMode} onAll={table ? void 0 : setAll} />}
   <div className="flex flex-wrap items-center gap-3 mb-5"><div role="tablist" aria-label="Match view" className="flex gap-1 overflow-x-auto no-scrollbar">{VIEWS.map((v) => <button key={v} role="tab" aria-selected={view === v && !date} onClick={() => {
     setView(v);
     setDate("");
     setMore(3);
-  }} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold border transition ${view === v && !date ? "bg-lime text-ink border-lime" : "border-line text-mute hover:text-white"}`}>{v}</button>)}</div>
-   {!table && <div className="ml-auto flex items-center gap-2 text-xs text-mute"><button onClick={() => shift(-1)} aria-label="Previous day" className="w-8 h-8 rounded-lg border border-line grid place-items-center hover:text-white"><I n="back" s={14} /></button><input type="date" aria-label="Pick a date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-lg bg-card border border-line px-2.5 py-1.5 text-sm text-white outline-none" /><button onClick={() => shift(1)} aria-label="Next day" className="w-8 h-8 rounded-lg border border-line grid place-items-center hover:text-white"><I n="right" s={14} /></button>{date && <button onClick={() => setDate("")} className="text-sky font-semibold">Clear</button>}</div>}</div>
-  <p className="text-[11px] text-mute mb-3">Kickoff times are shown in your local timezone{tzName() ? ` (${tzName()})` : ""}.{liveView ? " Live scores refresh about once a minute." : ""}</p>
-  {table ? <Table /> : <Async s={r}>{r.paging && r.paging.truncated && <p className="text-[11px] text-amber-400 mb-3">The provider returned only part of the list for at least one day. Use the date picker to narrow it down.</p>}
-   {groups.length ? <div className="space-y-6">{groups.map((g) => <div key={g.k}><p className="text-xs font-bold uppercase tracking-wider text-mute mb-2">{g.k}</p><div className="grid md:grid-cols-2 gap-3">{g.items.map((m) => <MatchRow key={m.id} m={m} />)}</div></div>)}</div> : <Empty title={date ? "No matches on this date" : EMPTY[view]} body="Only matches returned by the data provider are shown." />}
+  }} className={`whitespace-nowrap inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold border transition ${view === v && !date ? "bg-lime text-ink border-lime" : "border-line text-mute hover:text-white"}`}>{v === "Favourites" && <I n="star" s={14} fill={view === "Favourites" && !date} />}{v}{v === "Favourites" && Object.keys(favs).length > 0 && <span className="text-[10px] font-extrabold opacity-80">{Object.keys(favs).length}</span>}</button>)}</div>
+   {!table && !fav && <div className="ml-auto flex items-center gap-2 text-xs text-mute"><button onClick={() => shift(-1)} aria-label="Previous day" className="w-8 h-8 rounded-lg border border-line grid place-items-center hover:text-white"><I n="back" s={14} /></button><input type="date" aria-label="Pick a date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-lg bg-card border border-line px-2.5 py-1.5 text-sm text-white outline-none" /><button onClick={() => shift(1)} aria-label="Next day" className="w-8 h-8 rounded-lg border border-line grid place-items-center hover:text-white"><I n="right" s={14} /></button>{date && <button onClick={() => setDate("")} className="text-sky font-semibold">Clear</button>}</div>}</div>
+  {!fav && !table && <p className="text-[11px] text-mute mb-3">Kickoff times are shown in your local timezone{tzName() ? ` (${tzName()})` : ""}.{liveView ? ` Live scores refresh about every ${allMode ? 2 : 1} minute${allMode ? "s" : ""}.` : ""}{allMode ? ` Showing all ${ids.length} competitions uses ${ids.length} API requests per day shown. Pick one competition to save requests.` : ""}</p>}
+  {table ? <Table /> : fav ? days.length ? body : <Empty icon="star" title="No favourites yet" body="Tap the star on any match to follow it here. Favourites are saved in this browser." /> : <Async s={r}>{r.paging && r.paging.truncated && <p className="text-[11px] text-amber-400 mb-3">The provider returned only part of the list for at least one day. Use the date picker to narrow it down.</p>}
+   {days.length ? body : <Empty title={date ? "No matches on this date" : EMPTY[view]} body="Only matches returned by the data provider are shown." />}
    {range && more < 14 && <div className="text-center mt-6"><Btn v="s" onClick={() => setMore(more + 3)}>Show 3 more days</Btn></div>}</Async>}</div>;
 }
 
@@ -1972,9 +2042,8 @@ var MAPF = { Live: "live", Upcoming: "upcoming", Completed: "ft" };
 var ORD = { live: 0, upcoming: 1, ft: 2, off: 3 };
 function DiscussTab() {
   const { disc } = useSocial();
-  const lp = useLeagueParam();
   const [f, setF] = useState24("All"), [open, setOpen] = useState24(null);
-  const r = useMatches({ date: dayStr(0), ...lp }, { ttl: 3e5 });
+  const r = useMatchDays([dayStr(0)], { ttl: 3e5 });
   if (open) return <MatchDiscussionRoom m={open} onBack={() => setOpen(null)} />;
   const list = r.list.filter((m) => f === "All" || m.st === MAPF[f]).sort((a, b) => ORD[a.st] - ORD[b.st] || (a.ts || 0) - (b.ts || 0));
   return <div><CompetitionChips /><div className="flex gap-2 overflow-x-auto no-scrollbar mb-5">{F2.map((x) => <button key={x} onClick={() => setF(x)} className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold border transition ${f === x ? "bg-lime text-ink border-lime" : "border-line text-mute hover:text-white"}`}>{x}</button>)}</div>
@@ -2610,7 +2679,7 @@ function Header({ fx }) {
   const { openPick, store } = useContext19(Ctx);
   const st = fx.status, show = st.kind !== "upcoming" && st.kind !== "off", m = toMatch(fx), pr = store[m.id], n = pr ? marketLines(pr, m).length : 0;
   return <div className="rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-5 sm:p-8">
-  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-mute"><span className="flex items-center gap-2">{fx.leagueLogo && <img src={fx.leagueLogo} alt="" referrerPolicy="no-referrer" className="w-5 h-5 object-contain" />}{fx.leagueName}{fx.round ? ` · ${fx.round}` : ""}</span><LiveStatus st={st} /></div>
+  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-mute"><span className="flex items-center gap-2">{fx.leagueLogo && <img src={fx.leagueLogo} alt="" referrerPolicy="no-referrer" className="w-5 h-5 object-contain" />}{fx.leagueName}{fx.round ? ` · ${fx.round}` : ""}</span><span className="flex items-center gap-1"><LiveStatus st={st} /><FavStar m={m} /></span></div>
   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-6 text-center"><div className="flex flex-col items-center gap-3"><TeamLogo t={fx.home} s={72} /><span className="font-extrabold text-sm sm:text-lg">{fx.home.name}</span></div>
    {show ? <p className="text-4xl sm:text-5xl font-extrabold tabular-nums">{fx.goals.home ?? "–"}<span className="text-mute mx-1.5">–</span>{fx.goals.away ?? "–"}</p> : <div><p className="text-mute font-bold">VS</p><p className="text-xs text-mute mt-1">{fmtTime(fx.timestamp)}</p></div>}
    <div className="flex flex-col items-center gap-3"><TeamLogo t={fx.away} s={72} /><span className="font-extrabold text-sm sm:text-lg">{fx.away.name}</span></div></div>
@@ -2750,7 +2819,7 @@ function Overview2() {
    <div className="xl:col-span-2 space-y-6">
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"><Stat2 l="Total Points" v={points} ic="trophy" /><Stat2 l="Predictions" v={picks} ic="check" /><Stat2 l="Accuracy" v={76} s="%" ic="bolt" /><Stat2 l="Current Streak" v={5} ic="flame" /></div>
     <p className="text-[11px] text-mute -mt-3">Points, accuracy and streak are placeholders until Phase 2 (they are not calculated from real results yet).</p>
-    <div><H2 t="Upcoming matches" /><Async s={up} banner={false}>{up.list.length ? <div className="grid sm:grid-cols-2 gap-4">{up.list.map((m) => <MatchRow key={m.id} m={m} />)}</div> : <Empty title="No upcoming matches returned" body="The data provider has no scheduled matches for this competition." />}</Async></div>
+    <div><H2 t="Upcoming matches" /><Async s={up} banner={false}>{up.list.length ? <div className="space-y-2">{up.list.map((m) => <MatchRow key={m.id} m={m} />)}</div> : <Empty title="No upcoming matches returned" body="The data provider has no scheduled matches for this competition." />}</Async></div>
     <div><H2 t="Competitions" />{L3.loading ? <Loading label="Loading competitions…" min="min-h-[7rem]" size={44} /> : L3.list.length ? <div className="grid sm:grid-cols-3 gap-4">{L3.list.map((c) => <Comp key={c.id} c={c} />)}</div> : <Empty title="No competitions available" body="Enable competitions with HIGHLIGHTLY_LEAGUES on the server." />}</div>
    </div>
    <div className="space-y-6">
@@ -2817,15 +2886,18 @@ function Shell({ tab, route }) {
    <header className="sticky top-0 z-30 bg-bg/70 backdrop-blur-2xl border-b border-line px-4 sm:px-8 flex items-center justify-between" style={{ paddingTop: "env(safe-area-inset-top,0px)", height: "calc(4rem + env(safe-area-inset-top,0px))" }}>
     <div className="lg:hidden cursor-pointer" onClick={() => nav("landing")}><Logo /></div><p className="hidden lg:block text-sm text-mute">{TABS4.find((t) => t[0] === tab)[1]}</p>
     <div className="flex items-center gap-3"><button onClick={() => nav("competition/st")} aria-label="Open my streak" title="My streak" className="flex items-center gap-1.5 text-sm font-bold bg-white/10 backdrop-blur border border-white/15 rounded-full px-3 py-1.5 hover:bg-white/15 transition active:scale-95"><I n="flame" s={14} c="text-flame" />{ME.streak}</button><NotificationBell />
-     <button onClick={() => setMenu(!menu)} title="Account menu" className={`rounded-full transition active:scale-95 ring-2 ${menu || tab === "profile" ? "ring-white/60" : "ring-white/15 hover:ring-white/40"}`}><Av t={ini(ME.full)} me /></button></div></header>
+     <button onClick={() => setMenu(!menu)} title="Account menu" aria-label={unreadN > 0 ? `Account menu, ${unreadN} unread message${unreadN === 1 ? "" : "s"}` : "Account menu"} className={`relative rounded-full transition active:scale-95 ring-2 ${menu || tab === "profile" ? "ring-white/60" : "ring-white/15 hover:ring-white/40"}`}><Av t={ini(ME.full)} me />{unreadN > 0 && <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-bg" />}</button></div></header>
    {menu && createPortal4(<><div className="fixed inset-0 z-[55]" onClick={() => setMenu(false)} /><div className="pop fixed z-[56] right-4 sm:right-8 w-60 rounded-2xl border border-white/15 bg-bg2/90 backdrop-blur-2xl shadow-2xl overflow-hidden" style={{ top: "calc(4.25rem + env(safe-area-inset-top,0px))" }}>
     <div className="px-4 py-3 border-b border-line"><p className="font-bold text-sm truncate">{ME.full}</p><p className="text-xs text-mute truncate">@{ME.name}</p></div>
-    {[["predictions", "My Predictions", "list"], ["profile", "Profile", "user"], ["settings", "Settings", "cog"]].map(([k, l, ic]) => <button key={k} onClick={() => go(k)} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold hover:bg-white/5 transition"><Tile k={k} ic={ic} on={false} s={28} />{l}</button>)}
+    {[["messages", "Messages", "comment"], ["predictions", "My Predictions", "list"], ["profile", "Profile", "user"], ["settings", "Settings", "cog"]].map(([k, l, ic]) => <button key={k} onClick={() => go(k)} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold hover:bg-white/5 transition"><Tile k={k} ic={ic} on={false} s={28} />{l}{k === "messages" && unreadN > 0 && <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-[#fff] text-[11px] font-bold grid place-items-center">{unreadN}</span>}</button>)}
     <button onClick={out} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition border-t border-line"><span className="w-7 h-7 rounded-[9px] bg-red-500/15 grid place-items-center"><I n="logout" s={14} /></span>Log out</button></div></>, document.body)}
    <main className="px-4 sm:px-8 py-6 pb-32 lg:pb-10 max-w-6xl"><Dashboard tab={tab} route={route} /></main></div>
-  <nav className="lg:hidden fixed z-40 inset-x-3 rounded-[30px] border border-white/15 bg-bg2/60 backdrop-blur-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,.6)] grid grid-cols-6 gap-1 p-1.5" style={{ bottom: "max(.75rem,env(safe-area-inset-bottom))" }}>{TABS4.filter((t) => t[0] !== "profile" && t[0] !== "settings" && t[0] !== "predictions").map(([k, l, ic]) => {
+  {
+    /* Mobile bottom navigation: a floating pill bar. The active item is a solid pill (icon + label); Messages is no longer here, it lives in the account menu. */
+  }
+  <nav aria-label="Primary" className="lg:hidden fixed z-40 inset-x-3 rounded-full border border-white/15 bg-bg2/80 backdrop-blur-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,.6)] grid grid-cols-5 gap-1 p-1.5" style={{ bottom: "max(.75rem,env(safe-area-inset-bottom))" }}>{TABS4.filter((t) => !["profile", "settings", "predictions", "messages"].includes(t[0])).map(([k, l, ic]) => {
     const on = tab === k;
-    return <button key={k} onClick={() => nav(k)} className={`flex flex-col items-center gap-0.5 rounded-[22px] border py-2 text-[10px] font-semibold transition active:scale-95 ${on ? "bg-white/15 border-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]" : "border-transparent text-mute"}`}><span className="relative" style={{ color: on ? NAVC[k] : void 0 }}><I n={ic} s={20} />{k === "messages" && unreadN > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[#fff] text-[9px] font-bold grid place-items-center">{unreadN}</span>}</span>{l.replace("My ", "").split(" ")[0]}</button>;
+    return <button key={k} onClick={() => nav(k)} aria-current={on ? "page" : void 0} className={`flex flex-col items-center justify-center gap-0.5 rounded-full py-2 text-[10px] max-[359px]:text-[9px] leading-tight font-semibold transition active:scale-95 ${on ? "bg-white text-bg font-bold shadow-[0_6px_16px_-8px_rgba(0,0,0,.5)]" : "text-mute hover:text-white"}`}><I n={ic} s={20} />{l.replace("My ", "").split(" ")[0]}</button>;
   })}</nav>
  </div>;
 }
@@ -3194,7 +3266,10 @@ function App() {
     const h = location.hash.slice(1);
     return VALID.includes(h.split("/")[0]) ? h : "landing";
   };
-  const [view, setView] = useState42(get), [store, setStore] = useState42(load), [points] = useState42(2450), [modal, setModal] = useState42(null), [toasts, setToasts] = useState42([]), [theme, setTheme] = useStored("matchiq.theme", "dark");
+  const [view, setView] = useState42(get), [store, setStore] = useState42(load), [points] = useState42(2450), [modal, setModal] = useState42(null), [toasts, setToasts] = useState42([]), [theme, setTheme] = useStored("matchiq.theme", "dark"), [favs, setFavs] = useStored("matchiq.favourites", {});
+  useMemo7(() => {
+    Object.values(favs).forEach(rehydrate);
+  }, [favs]);
   useEffect22(() => {
     const f = () => {
       setView(get());
@@ -3241,8 +3316,18 @@ function App() {
     setStore((s) => ({ ...s, [m.id]: { ...p, at: Date.now(), m: snap(m) } }));
     toast(`${edit ? "Prediction updated" : "Prediction locked"}: ${T[m.h][0]} vs ${T[m.a][0]}`);
   };
+  const toggleFav = (m) => {
+    const on = !!favs[m.id];
+    setFavs((f) => {
+      const n = { ...f };
+      if (n[m.id]) delete n[m.id];
+      else n[m.id] = snap(m);
+      return n;
+    });
+    toast(`${on ? "Removed from favourites" : "Added to favourites"}: ${T[m.h][0]} vs ${T[m.a][0]}`);
+  };
   const preds = Object.fromEntries(Object.keys(store).map((k) => [k, store[k].result || "X"]));
-  return <Ctx.Provider value={{ nav, toast, preds, points, store, save, modal, setModal, openPick: setModal, detail: null, setDetail, toasts, theme, setTheme }}><AuthProvider><SocialProvider>
+  return <Ctx.Provider value={{ nav, toast, preds, points, store, save, modal, setModal, openPick: setModal, detail: null, setDetail, favs, toggleFav, toasts, theme, setTheme }}><AuthProvider><SocialProvider>
   <Router view={view} /><PredictionModal /><ShareModal /><UserModal /><Toasts /></SocialProvider></AuthProvider></Ctx.Provider>;
 }
 
