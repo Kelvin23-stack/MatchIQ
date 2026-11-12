@@ -1,4 +1,4 @@
-import React,{useState,useEffect} from 'react'
+import React,{useState,useEffect,useMemo} from 'react'
 import {motion} from 'framer-motion'
 import {T} from './data'
 import {Ctx} from './context'
@@ -33,7 +33,8 @@ function Router({view}){
 
 export default function App(){
  const get=()=>{const h=location.hash.slice(1);return VALID.includes(h.split('/')[0])?h:'landing'};
- const[view,setView]=useState(get),[store,setStore]=useState(load),[points]=useState(2450),[modal,setModal]=useState(null),[toasts,setToasts]=useState([]),[theme,setTheme]=useStored('matchiq.theme','dark');
+ const[view,setView]=useState(get),[store,setStore]=useState(load),[points]=useState(2450),[modal,setModal]=useState(null),[toasts,setToasts]=useState([]),[theme,setTheme]=useStored('matchiq.theme','dark'),[favs,setFavs]=useStored('matchiq.favourites',{});
+ useMemo(()=>{Object.values(favs).forEach(rehydrate)},[favs]);   // team names/logos must be registered before any child renders a favourite
  useEffect(()=>{const f=()=>{setView(get());window.scrollTo(0,0)};addEventListener('hashchange',f);return()=>removeEventListener('hashchange',f)},[]);
  useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}},[store]);
  useEffect(()=>{const k=e=>{if(e.key==='Escape')setModal(null)};addEventListener('keydown',k);return()=>removeEventListener('keydown',k)},[]);
@@ -42,6 +43,7 @@ export default function App(){
  const toast=m=>{const id=Date.now()+Math.random();setToasts(t=>[...t,{id,m}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3200)};
  const setDetail=m=>{if(m)nav('lmatch/'+m.id+'/overview')};
  const save=(m,p,edit)=>{setStore(s=>({...s,[m.id]:{...p,at:Date.now(),m:snap(m)}}));toast(`${edit?'Prediction updated':'Prediction locked'}: ${T[m.h][0]} vs ${T[m.a][0]}`)};
+ const toggleFav=m=>{const on=!!favs[m.id];setFavs(f=>{const n={...f};if(n[m.id])delete n[m.id];else n[m.id]=snap(m);return n});toast(`${on?'Removed from favourites':'Added to favourites'}: ${T[m.h][0]} vs ${T[m.a][0]}`)};
  const preds=Object.fromEntries(Object.keys(store).map(k=>[k,store[k].result||'X']));
- return <Ctx.Provider value={{nav,toast,preds,points,store,save,modal,setModal,openPick:setModal,detail:null,setDetail,toasts,theme,setTheme}}><AuthProvider><SocialProvider>
+ return <Ctx.Provider value={{nav,toast,preds,points,store,save,modal,setModal,openPick:setModal,detail:null,setDetail,favs,toggleFav,toasts,theme,setTheme}}><AuthProvider><SocialProvider>
   <Router view={view}/><PredictionModal/><ShareModal/><UserModal/><Toasts/></SocialProvider></AuthProvider></Ctx.Provider>}

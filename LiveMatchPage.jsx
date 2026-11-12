@@ -7,6 +7,7 @@ import {I} from './Icon'
 import {Btn} from './ui'
 import {TeamLogo,LiveStatus,Skeleton,ErrorBox,DataBanner,fmtTime,tzName,PROVIDER} from './LiveBits'
 import {toMatch} from './liveMatch'
+import {FavStar} from './LiveMatches'
 import {marketLines} from './data'
 import {Crumbs,Empty} from './PlayerBits'
 import {LineupView,LineupPending} from './Pitch'
@@ -18,7 +19,7 @@ const sv=v=>typeof v==='number'?fmtV(v):typeof v==='string'&&v?v:'–';
 
 function Header({fx}){const {openPick,store}=useContext(Ctx);const st=fx.status,show=st.kind!=='upcoming'&&st.kind!=='off',m=toMatch(fx),pr=store[m.id],n=pr?marketLines(pr,m).length:0;
  return <div className="rounded-3xl border border-line bg-gradient-to-br from-card to-bg2 p-5 sm:p-8">
-  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-mute"><span className="flex items-center gap-2">{fx.leagueLogo&&<img src={fx.leagueLogo} alt="" referrerPolicy="no-referrer" className="w-5 h-5 object-contain"/>}{fx.leagueName}{fx.round?` · ${fx.round}`:''}</span><LiveStatus st={st}/></div>
+  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-mute"><span className="flex items-center gap-2">{fx.leagueLogo&&<img src={fx.leagueLogo} alt="" referrerPolicy="no-referrer" className="w-5 h-5 object-contain"/>}{fx.leagueName}{fx.round?` · ${fx.round}`:''}</span><span className="flex items-center gap-1"><LiveStatus st={st}/><FavStar m={m}/></span></div>
   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-6 text-center"><div className="flex flex-col items-center gap-3"><TeamLogo t={fx.home} s={72}/><span className="font-extrabold text-sm sm:text-lg">{fx.home.name}</span></div>
    {show?<p className="text-4xl sm:text-5xl font-extrabold tabular-nums">{fx.goals.home??'–'}<span className="text-mute mx-1.5">–</span>{fx.goals.away??'–'}</p>:<div><p className="text-mute font-bold">VS</p><p className="text-xs text-mute mt-1">{fmtTime(fx.timestamp)}</p></div>}
    <div className="flex flex-col items-center gap-3"><TeamLogo t={fx.away} s={72}/><span className="font-extrabold text-sm sm:text-lg">{fx.away.name}</span></div></div>

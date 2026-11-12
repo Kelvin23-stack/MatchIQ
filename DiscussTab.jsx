@@ -5,7 +5,7 @@ import {Crest} from './ui'
 import {I} from './Icon'
 import {StatusPill} from './MatchCard'
 import {MatchDiscussionRoom} from './MatchDiscussionRoom'
-import {useMatches,useLeagueParam,dayStr} from './liveMatch'
+import {useMatchDays,dayStr} from './liveMatch'
 import {CompetitionChips} from './LiveMatches'
 import {Async} from './LiveBits'
 import {Empty} from './PlayerBits'
@@ -13,8 +13,8 @@ import {Empty} from './PlayerBits'
 const F=['All','Live','Upcoming','Completed'],MAPF={Live:'live',Upcoming:'upcoming',Completed:'ft'},ORD={live:0,upcoming:1,ft:2,off:3};
 // Discussion rooms exist for today's real matches (same request as Match Centre, so it is served from cache).
 export function DiscussTab(){
- const {disc}=useSocial();const lp=useLeagueParam();const [f,setF]=useState('All'),[open,setOpen]=useState(null);
- const r=useMatches({date:dayStr(0),...lp},{ttl:300000});
+ const {disc}=useSocial();const [f,setF]=useState('All'),[open,setOpen]=useState(null);
+ const r=useMatchDays([dayStr(0)],{ttl:300000});
  if(open)return <MatchDiscussionRoom m={open} onBack={()=>setOpen(null)}/>;
  const list=r.list.filter(m=>f==='All'||m.st===MAPF[f]).sort((a,b)=>ORD[a.st]-ORD[b.st]||(a.ts||0)-(b.ts||0));
  return <div><CompetitionChips/><div className="flex gap-2 overflow-x-auto no-scrollbar mb-5">{F.map(x=><button key={x} onClick={()=>setF(x)} className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold border transition ${f===x?'bg-lime text-ink border-lime':'border-line text-mute hover:text-white'}`}>{x}</button>)}</div>

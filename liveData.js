@@ -20,7 +20,7 @@ const ts=d=>{const t=Date.parse(d);return Number.isNaN(t)?null:Math.floor(t/1000
 
 // ---- matches (list items and /matches/{id} items share this shape) ----------------------------------------------------
 export function normFixture(r){if(!r||r.id==null)return null;const st=r.state||{},sc=parseScore(st.score&&st.score.current),h=r.homeTeam||{},a=r.awayTeam||{},l=r.league||{};
- return{id:r.id,leagueId:l.id??null,leagueName:l.name||'',leagueLogo:img(l.logo),season:l.season??null,round:r.round||'',timestamp:ts(r.date),
+ return{id:r.id,leagueId:l.id??null,leagueName:l.name||'',leagueLogo:img(l.logo),country:r.country&&r.country.name||null,season:l.season??null,round:r.round||'',timestamp:ts(r.date),
   venue:r.venue&&r.venue.name||null,city:r.venue&&r.venue.city||null,referee:r.referee&&r.referee.name||null,status:statusInfo(st),
   home:{id:h.id,name:h.name||'Home',logo:img(h.logo),winner:null},away:{id:a.id,name:a.name||'Away',logo:img(a.logo),winner:null},
   goals:{home:sc?sc[0]:null,away:sc?sc[1]:null},penalties:parseScore(st.score&&st.score.penalties)}}
